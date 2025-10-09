@@ -1,0 +1,13 @@
+{
+  "name": "@survey/shared",
+  "version": "1.0.0",
+  "description": "Shared types, constants, and utilities",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "jest"
+  },
+  "keywords": ["shared", "types", "utilities"],
+  "author": "",
+  "license": "ISC"
+}

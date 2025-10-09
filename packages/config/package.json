@@ -1,0 +1,8 @@
+{
+  "name": "@survey/config",
+  "version": "1.0.0",
+  "description": "Shared configuration files",
+  "keywords": ["config", "eslint", "typescript", "jest"],
+  "author": "",
+  "license": "ISC"
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@survey/ui",
+  "version": "1.0.0",
+  "description": "Shared UI components",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "jest"
+  },
+  "keywords": ["ui", "components", "react"],
+  "author": "",
+  "license": "ISC",
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "@mui/material": "^5.14.0"
+  }
+}

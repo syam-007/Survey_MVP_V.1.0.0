@@ -1,0 +1,20 @@
+{
+  "name": "survey-management-system",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:api": "cd apps/api && source venv/bin/activate && python manage.py runserver",
+    "install:all": "npm install && cd apps/api && pip install -r requirements.txt",
+    "test": "npm run test --workspaces",
+    "build": "npm run build --workspaces"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

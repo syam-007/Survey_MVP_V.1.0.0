@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python manage.py:*)",
+      "Bash(.venvScriptspython.exe manage.py makemigrations)",
+      "Bash(venv/Scripts/python.exe manage.py migrate:*)",
+      "Bash(venv/Scripts/python.exe manage.py test:*)",
+      "Bash(./venv/Scripts/python.exe manage.py test tests.test_query_optimization.WellQueryOptimizationTest.test_well_detail_query_count --keepdb)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm test:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

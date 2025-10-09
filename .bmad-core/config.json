@@ -1,0 +1,12 @@
+{
+    "agents": [
+      {
+        "name": "claude",
+        "provider": "anthropic",
+        "model": "claude-3.5-sonnet",
+        "enabled": true,
+        "tools": ["python", "filesystem", "terminal"]
+      }
+    ]
+  }
+  
