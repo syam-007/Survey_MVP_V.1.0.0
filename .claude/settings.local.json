@@ -8,7 +8,14 @@
       "Bash(./venv/Scripts/python.exe manage.py test tests.test_query_optimization.WellQueryOptimizationTest.test_well_detail_query_count --keepdb)",
       "Bash(npm install:*)",
       "Bash(npm run build:*)",
-      "Bash(npm test:*)"
+      "Bash(npm test:*)",
+      "Bash(npx tsc:*)",
+      "Bash(venv/Scripts/python.exe -c \"import sys; from survey_api.models import Location; from survey_api.serializers import LocationSerializer, CreateLocationSerializer, UpdateLocationSerializer; from survey_api.services.location_service import LocationService; from survey_api.views.location_viewset import LocationViewSet; print(''All Location modules import successfully'')\")",
+      "Bash(dir:*)",
+      "Bash(test:*)",
+      "Bash(venv/Scripts/python.exe -c \"import sys; from survey_api.models import Depth; print(''Depth model imported successfully'')\")",
+      "Bash(venv/Scripts/python.exe manage.py makemigrations:*)",
+      "Bash(../../venv/Scripts/python.exe manage.py test:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,6 +1,7 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
+from decimal import Decimal
 from survey_api.models import Well, Run, Location, Depth, SurveyFile, SurveyCalculation
 
 User = get_user_model()
@@ -145,6 +146,10 @@ class LocationModelTest(TestCase):
             email='test@example.com',
             password='testpass123'
         )
+        self.well = Well.objects.create(
+            well_name='Test Well',
+            well_type='Oil'
+        )
         self.run = Run.objects.create(
             run_number='RUN001',
             run_name='Test Run',
@@ -153,38 +158,234 @@ class LocationModelTest(TestCase):
         )
         self.location = Location.objects.create(
             run=self.run,
-            latitude=29.12345678,
-            longitude=-95.12345678,
-            easting=500000.123,
-            northing=3200000.456,
+            latitude=Decimal('29.12345678'),
+            longitude=Decimal('-95.12345678'),
+            easting=Decimal('500000.123'),
+            northing=Decimal('3200000.456'),
             geodetic_system='WGS84',
-            map_zone='UTM Zone 15N'
+            map_zone='15N',
+            north_reference='True North',
+            central_meridian=Decimal('-93.0'),
+            grid_correction=Decimal('0.123456'),
+            g_t=Decimal('0.00012345'),
+            max_g_t=Decimal('0.00014815'),
+            w_t=Decimal('0.9996'),
+            max_w_t=Decimal('1.0004')
         )
 
     def test_location_creation(self):
-        """Test successful location creation"""
-        self.assertEqual(self.location.latitude, 29.12345678)
-        self.assertEqual(self.location.longitude, -95.12345678)
-        self.assertEqual(self.location.easting, 500000.123)
-        self.assertEqual(self.location.northing, 3200000.456)
+        """Test successful location creation with all fields"""
+        self.assertEqual(self.location.latitude, Decimal('29.12345678'))
+        self.assertEqual(self.location.longitude, Decimal('-95.12345678'))
+        self.assertEqual(self.location.easting, Decimal('500000.123'))
+        self.assertEqual(self.location.northing, Decimal('3200000.456'))
         self.assertEqual(self.location.geodetic_system, 'WGS84')
+        self.assertEqual(self.location.map_zone, '15N')
+        self.assertEqual(self.location.north_reference, 'True North')
+        self.assertEqual(self.location.central_meridian, Decimal('-93.0'))
+        self.assertEqual(self.location.grid_correction, Decimal('0.123456'))
+        self.assertEqual(self.location.g_t, Decimal('0.00012345'))
+        self.assertEqual(self.location.max_g_t, Decimal('0.00014815'))
+        self.assertEqual(self.location.w_t, Decimal('0.9996'))
+        self.assertEqual(self.location.max_w_t, Decimal('1.0004'))
         self.assertIsNotNone(self.location.id)
         self.assertIsNotNone(self.location.created_at)
+        self.assertIsNotNone(self.location.updated_at)
 
-    def test_location_str(self):
-        """Test location string representation"""
-        self.assertEqual(str(self.location), 'Location for RUN001')
+    def test_location_str_with_run(self):
+        """Test location string representation for run"""
+        self.assertEqual(str(self.location), 'Location for Run RUN001')
+
+    def test_location_str_with_well(self):
+        """Test location string representation for well"""
+        location_well = Location.objects.create(
+            well=self.well,
+            latitude=30.0,
+            longitude=-96.0
+        )
+        self.assertEqual(str(location_well), 'Location for Well Test Well')
 
     def test_location_run_relationship(self):
         """Test Location-Run OneToOne relationship"""
         self.assertEqual(self.location.run, self.run)
         self.assertEqual(self.run.location, self.location)
 
+    def test_location_well_relationship(self):
+        """Test Location-Well OneToOne relationship"""
+        location_well = Location.objects.create(
+            well=self.well,
+            latitude=30.0,
+            longitude=-96.0
+        )
+        self.assertEqual(location_well.well, self.well)
+        self.assertEqual(self.well.location, location_well)
+
     def test_location_cascade_on_run_delete(self):
         """Test Location is deleted when Run is deleted (CASCADE)"""
         location_id = self.location.id
         self.run.delete()
         self.assertFalse(Location.objects.filter(id=location_id).exists())
+
+    def test_location_cascade_on_well_delete(self):
+        """Test Location is deleted when Well is deleted (CASCADE)"""
+        location_well = Location.objects.create(
+            well=self.well,
+            latitude=30.0,
+            longitude=-96.0
+        )
+        location_id = location_well.id
+        self.well.delete()
+        self.assertFalse(Location.objects.filter(id=location_id).exists())
+
+    def test_location_default_values(self):
+        """Test location default values for optional fields"""
+        # Create a new run for this test since self.run already has a location
+        run2 = Run.objects.create(
+            run_number='RUN_DEFAULTS',
+            run_name='Test Defaults',
+            run_type='GTL',
+            user=self.user
+        )
+        location = Location.objects.create(
+            run=run2,
+            latitude=45.0,
+            longitude=-122.0
+        )
+        self.assertEqual(location.geodetic_system, 'WGS84')
+        self.assertEqual(location.map_zone, '15N')
+        self.assertEqual(location.north_reference, 'True North')
+        self.assertEqual(location.central_meridian, Decimal('0.0'))
+
+    def test_location_north_reference_choices(self):
+        """Test north_reference choices are valid"""
+        valid_choices = ['True North', 'Grid North', 'Magnetic North']
+        for choice in valid_choices:
+            location = Location.objects.create(
+                run=Run.objects.create(
+                    run_number=f'RUN_{choice}',
+                    run_name=f'Test Run {choice}',
+                    run_type='GTL',
+                    user=self.user
+                ),
+                latitude=30.0,
+                longitude=-96.0,
+                north_reference=choice
+            )
+            self.assertEqual(location.north_reference, choice)
+
+    def test_location_cannot_have_both_run_and_well(self):
+        """Test Location validation fails when both run and well are set"""
+        from django.core.exceptions import ValidationError
+        location = Location(
+            run=self.run,
+            well=self.well,
+            latitude=30.0,
+            longitude=-96.0
+        )
+        with self.assertRaises(ValidationError) as context:
+            location.save()
+        self.assertIn('run or a well, not both', str(context.exception))
+
+    def test_location_must_have_run_or_well(self):
+        """Test Location validation fails when neither run nor well is set"""
+        from django.core.exceptions import ValidationError
+        location = Location(
+            latitude=30.0,
+            longitude=-96.0
+        )
+        with self.assertRaises(ValidationError) as context:
+            location.save()
+        self.assertIn('either a run or a well', str(context.exception))
+
+    def test_location_latitude_validation_range(self):
+        """Test latitude validators ensure range -90 to 90"""
+        from django.core.exceptions import ValidationError
+        from decimal import Decimal
+
+        # Test valid extremes
+        location_north = Location.objects.create(
+            run=Run.objects.create(
+                run_number='RUN_NORTH',
+                run_name='North Test',
+                run_type='GTL',
+                user=self.user
+            ),
+            latitude=Decimal('90.0'),
+            longitude=0.0
+        )
+        self.assertEqual(location_north.latitude, 90.0)
+
+        location_south = Location.objects.create(
+            run=Run.objects.create(
+                run_number='RUN_SOUTH',
+                run_name='South Test',
+                run_type='GTL',
+                user=self.user
+            ),
+            latitude=Decimal('-90.0'),
+            longitude=0.0
+        )
+        self.assertEqual(location_south.latitude, -90.0)
+
+    def test_location_longitude_validation_range(self):
+        """Test longitude validators ensure range -180 to 180"""
+        from decimal import Decimal
+
+        # Test valid extremes
+        location_east = Location.objects.create(
+            run=Run.objects.create(
+                run_number='RUN_EAST',
+                run_name='East Test',
+                run_type='GTL',
+                user=self.user
+            ),
+            latitude=0.0,
+            longitude=Decimal('180.0')
+        )
+        self.assertEqual(location_east.longitude, 180.0)
+
+        location_west = Location.objects.create(
+            run=Run.objects.create(
+                run_number='RUN_WEST',
+                run_name='West Test',
+                run_type='GTL',
+                user=self.user
+            ),
+            latitude=0.0,
+            longitude=Decimal('-180.0')
+        )
+        self.assertEqual(location_west.longitude, -180.0)
+
+    def test_location_calculated_fields_nullable(self):
+        """Test calculated fields can be null"""
+        location = Location.objects.create(
+            run=Run.objects.create(
+                run_number='RUN_MINIMAL',
+                run_name='Minimal Test',
+                run_type='GTL',
+                user=self.user
+            ),
+            latitude=45.0,
+            longitude=-122.0
+        )
+        # These fields should be nullable
+        self.assertIsNone(location.easting)
+        self.assertIsNone(location.northing)
+        self.assertIsNone(location.grid_correction)
+        self.assertIsNone(location.g_t)
+        self.assertIsNone(location.max_g_t)
+        self.assertIsNone(location.w_t)
+        self.assertIsNone(location.max_w_t)
+
+    def test_location_onetoone_constraint(self):
+        """Test OneToOne constraint prevents duplicate locations for same run"""
+        from django.core.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            Location.objects.create(
+                run=self.run,
+                latitude=30.0,
+                longitude=-96.0
+            )
 
 
 class DepthModelTest(TestCase):
@@ -204,35 +405,148 @@ class DepthModelTest(TestCase):
         )
         self.depth = Depth.objects.create(
             run=self.run,
-            elevation_reference='Kelly Bushing',
-            reference_datum='MSL',
-            reference_height=25.5,
-            reference_elevation=1250.75
+            elevation_reference='KB',
+            reference_datum='WGS84',
+            reference_height=Decimal('1500.500'),
+            reference_elevation=Decimal('985.250')
         )
 
     def test_depth_creation(self):
         """Test successful depth creation"""
-        self.assertEqual(self.depth.elevation_reference, 'Kelly Bushing')
-        self.assertEqual(self.depth.reference_datum, 'MSL')
-        self.assertEqual(self.depth.reference_height, 25.5)
-        self.assertEqual(self.depth.reference_elevation, 1250.75)
+        self.assertEqual(self.depth.elevation_reference, 'KB')
+        self.assertEqual(self.depth.reference_datum, 'WGS84')
+        self.assertEqual(self.depth.reference_height, Decimal('1500.500'))
+        self.assertEqual(self.depth.reference_elevation, Decimal('985.250'))
         self.assertIsNotNone(self.depth.id)
         self.assertIsNotNone(self.depth.created_at)
+        self.assertIsNotNone(self.depth.updated_at)
 
-    def test_depth_str(self):
-        """Test depth string representation"""
-        self.assertEqual(str(self.depth), 'Depth for RUN001')
+    def test_depth_str_with_run(self):
+        """Test depth string representation for run"""
+        self.assertEqual(str(self.depth), 'Depth for Run RUN001')
+
+    def test_depth_str_with_well(self):
+        """Test depth string representation for well"""
+        well = Well.objects.create(well_name='Test Well', well_type='Oil')
+        depth_well = Depth.objects.create(
+            well=well,
+            elevation_reference='KB',
+            reference_datum='WGS84',
+            reference_height=Decimal('1500.0'),
+            reference_elevation=Decimal('985.0')
+        )
+        self.assertEqual(str(depth_well), 'Depth for Well Test Well')
 
     def test_depth_run_relationship(self):
         """Test Depth-Run OneToOne relationship"""
         self.assertEqual(self.depth.run, self.run)
         self.assertEqual(self.run.depth, self.depth)
 
+    def test_depth_well_relationship(self):
+        """Test Depth-Well OneToOne relationship"""
+        well = Well.objects.create(well_name='Test Well 2', well_type='Gas')
+        depth_well = Depth.objects.create(
+            well=well,
+            elevation_reference='RT',
+            reference_datum='WGS84',
+            reference_height=Decimal('2000.0'),
+            reference_elevation=Decimal('1200.0')
+        )
+        self.assertEqual(depth_well.well, well)
+        self.assertEqual(well.depth, depth_well)
+
     def test_depth_cascade_on_run_delete(self):
         """Test Depth is deleted when Run is deleted (CASCADE)"""
         depth_id = self.depth.id
         self.run.delete()
         self.assertFalse(Depth.objects.filter(id=depth_id).exists())
+
+    def test_depth_cascade_on_well_delete(self):
+        """Test Depth is deleted when Well is deleted (CASCADE)"""
+        well = Well.objects.create(well_name='Cascade Well', well_type='Oil')
+        depth_well = Depth.objects.create(
+            well=well,
+            elevation_reference='GL',
+            reference_datum='NAD83',
+            reference_height=Decimal('1000.0'),
+            reference_elevation=Decimal('500.0')
+        )
+        depth_id = depth_well.id
+        well.delete()
+        self.assertFalse(Depth.objects.filter(id=depth_id).exists())
+
+    def test_depth_elevation_reference_choices(self):
+        """Test elevation_reference valid choices"""
+        valid_choices = ['KB', 'RT', 'GL', 'MSL', 'DF', 'RKB']
+        for choice in valid_choices:
+            depth = Depth.objects.create(
+                run=Run.objects.create(
+                    run_number=f'RUN_{choice}',
+                    run_name=f'Test {choice}',
+                    run_type='GTL',
+                    user=self.user
+                ),
+                elevation_reference=choice,
+                reference_datum='WGS84',
+                reference_height=Decimal('1500.0'),
+                reference_elevation=Decimal('1000.0')
+            )
+            self.assertEqual(depth.elevation_reference, choice)
+
+    def test_depth_default_values(self):
+        """Test depth default values"""
+        run2 = Run.objects.create(
+            run_number='RUN_DEFAULTS',
+            run_name='Defaults Test',
+            run_type='MWD',
+            user=self.user
+        )
+        depth = Depth.objects.create(run=run2)
+        self.assertEqual(depth.elevation_reference, 'KB')
+        self.assertEqual(depth.reference_datum, 'WGS84')
+        self.assertEqual(depth.reference_height, Decimal('0.000'))
+        self.assertEqual(depth.reference_elevation, Decimal('0.000'))
+
+    def test_depth_cannot_have_both_run_and_well(self):
+        """Test Depth validation fails when both run and well are set"""
+        from django.core.exceptions import ValidationError
+        well = Well.objects.create(well_name='Both Test', well_type='Water')
+        depth = Depth(
+            run=self.run,
+            well=well,
+            elevation_reference='MSL',
+            reference_datum='WGS84',
+            reference_height=Decimal('100.0'),
+            reference_elevation=Decimal('50.0')
+        )
+        with self.assertRaises(ValidationError) as context:
+            depth.save()
+        self.assertIn('run or a well, not both', str(context.exception))
+
+    def test_depth_must_have_run_or_well(self):
+        """Test Depth validation fails when neither run nor well is set"""
+        from django.core.exceptions import ValidationError
+        depth = Depth(
+            elevation_reference='KB',
+            reference_datum='WGS84',
+            reference_height=Decimal('100.0'),
+            reference_elevation=Decimal('50.0')
+        )
+        with self.assertRaises(ValidationError) as context:
+            depth.save()
+        self.assertIn('either a run or a well', str(context.exception))
+
+    def test_depth_onetoone_constraint(self):
+        """Test OneToOne constraint prevents duplicate depths for same run"""
+        from django.core.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            Depth.objects.create(
+                run=self.run,
+                elevation_reference='RT',
+                reference_datum='NAD83',
+                reference_height=Decimal('200.0'),
+                reference_elevation=Decimal('100.0')
+            )
 
 
 class SurveyFileModelTest(TestCase):

@@ -11,8 +11,13 @@ import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { RoleProtectedRoute } from './components/common/RoleProtectedRoute';
 import { RunListPage } from './pages/runs/RunListPage';
 import { CreateRunPage } from './pages/runs/CreateRunPage';
+import { CreateCompleteRunPage } from './pages/runs/CreateCompleteRunPage';
 import { RunDetailPage } from './pages/runs/RunDetailPage';
 import { EditRunPage } from './pages/runs/EditRunPage';
+import { WellListPage } from './pages/wells/WellListPage';
+import { WellCreatePage } from './pages/wells/WellCreatePage';
+import { WellDetailPage } from './pages/wells/WellDetailPage';
+import { WellEditPage } from './pages/wells/WellEditPage';
 
 const theme = createTheme({
   palette: {
@@ -70,6 +75,14 @@ function App() {
               }
             />
             <Route
+              path="/runs/new/complete"
+              element={
+                <RoleProtectedRoute requiredRole="Engineer">
+                  <CreateCompleteRunPage />
+                </RoleProtectedRoute>
+              }
+            />
+            <Route
               path="/runs/:id"
               element={
                 <ProtectedRoute>
@@ -82,6 +95,38 @@ function App() {
               element={
                 <RoleProtectedRoute requiredRole="Engineer">
                   <EditRunPage />
+                </RoleProtectedRoute>
+              }
+            />
+            <Route
+              path="/wells"
+              element={
+                <ProtectedRoute>
+                  <WellListPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/wells/new"
+              element={
+                <RoleProtectedRoute requiredRole="Engineer">
+                  <WellCreatePage />
+                </RoleProtectedRoute>
+              }
+            />
+            <Route
+              path="/wells/:id"
+              element={
+                <ProtectedRoute>
+                  <WellDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/wells/:id/edit"
+              element={
+                <RoleProtectedRoute requiredRole="Engineer">
+                  <WellEditPage />
                 </RoleProtectedRoute>
               }
             />

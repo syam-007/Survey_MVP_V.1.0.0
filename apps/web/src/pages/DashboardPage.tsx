@@ -40,6 +40,34 @@ export const DashboardPage: React.FC = () => {
             )}
           </Box>
 
+          <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Navigation
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <Button
+                variant="contained"
+                onClick={() => navigate('/runs')}
+              >
+                Runs
+              </Button>
+              <Button
+                variant="contained"
+                onClick={() => navigate('/wells')}
+              >
+                Wells
+              </Button>
+              {user?.role === 'Admin' && (
+                <Button
+                  variant="contained"
+                  onClick={() => navigate('/users')}
+                >
+                  Users
+                </Button>
+              )}
+            </Box>
+          </Box>
+
           <Button
             variant="contained"
             color="secondary"

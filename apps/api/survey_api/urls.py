@@ -33,11 +33,19 @@ from survey_api.views.user_views import (
 )
 from survey_api.views.run_viewset import RunViewSet
 from survey_api.views.well_viewset import WellViewSet
+from survey_api.views.location_viewset import LocationViewSet
+from survey_api.views.depth_viewset import DepthViewSet
+from survey_api.views.survey_viewset import SurveyViewSet
+from survey_api.views.tieon_viewset import TieOnViewSet
 
 # Initialize DRF router
 router = DefaultRouter()
 router.register(r'runs', RunViewSet, basename='run')
 router.register(r'wells', WellViewSet, basename='well')
+router.register(r'locations', LocationViewSet, basename='location')
+router.register(r'depths', DepthViewSet, basename='depth')
+router.register(r'surveys', SurveyViewSet, basename='survey')
+router.register(r'tieons', TieOnViewSet, basename='tieon')
 
 urlpatterns = [
     path("admin/", admin.site.urls),

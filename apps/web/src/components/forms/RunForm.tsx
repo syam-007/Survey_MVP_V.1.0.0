@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -18,6 +18,9 @@ import {
   Stack,
 } from '@mui/material';
 import type { CreateRunInput, RunType } from '../../types/run.types';
+import type { Well } from '../../types/well.types';
+import { WellAutocomplete } from '../wells/WellAutocomplete';
+import { useGetWellByIdQuery } from '../../stores/wellsSlice';
 
 // Validation schema
 const runSchema = yup.object({
@@ -83,6 +86,7 @@ export const RunForm: React.FC<RunFormProps> = ({
     control,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
     reset,
   } = useForm<CreateRunInput>({
@@ -95,10 +99,32 @@ export const RunForm: React.FC<RunFormProps> = ({
       bhc_enabled: initialValues?.bhc_enabled ?? true,
       proposal_direction: initialValues?.proposal_direction || null,
       grid_correction: initialValues?.grid_correction || null,
+      well: initialValues?.well || null,
     },
   });
 
   const bhcEnabled = watch('bhc_enabled');
+
+  // Well selection state
+  const [selectedWell, setSelectedWell] = useState<Well | null>(null);
+
+  // Fetch initial well if editing and well ID is provided
+  const { data: initialWell } = useGetWellByIdQuery(initialValues?.well || '', {
+    skip: !initialValues?.well,
+  });
+
+  // Set initial well when data loads
+  useEffect(() => {
+    if (initialWell) {
+      setSelectedWell(initialWell);
+    }
+  }, [initialWell]);
+
+  // Handle well selection
+  const handleWellChange = (well: Well | null) => {
+    setSelectedWell(well);
+    setValue('well', well?.id || null);
+  };
 
   // Reset form when initialValues change (for edit mode)
   useEffect(() => {
@@ -187,6 +213,16 @@ export const RunForm: React.FC<RunFormProps> = ({
               />
             </Box>
           </Stack>
+
+          {/* Well Selection */}
+          <Box>
+            <WellAutocomplete
+              value={selectedWell}
+              onChange={handleWellChange}
+              disabled={isSubmitting}
+              label="Well (Optional)"
+            />
+          </Box>
 
           {/* BHC Enabled Checkbox */}
           <Box>

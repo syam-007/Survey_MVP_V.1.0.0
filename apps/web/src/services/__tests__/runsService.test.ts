@@ -78,7 +78,7 @@ describe('RunsService', () => {
   beforeEach(() => {
     // Create a new mock adapter for the runsService axios instance
     mockAxios = new MockAdapter(runsService.getAxiosInstance());
-    (authService.getAccessToken as jest.Mock).mockReturnValue('mock-access-token');
+    // Note: authService mocks not needed - interceptors disabled in test environment
   });
 
   afterEach(() => {
