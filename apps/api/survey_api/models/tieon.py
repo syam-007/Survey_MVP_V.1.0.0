@@ -14,24 +14,6 @@ class TieOn(models.Model):
     A tie-on is associated with exactly one Run (OneToOne relationship).
     """
 
-    # Hole Section choices
-    HOLE_SECTION_CHOICES = [
-        ('Surface Casing', 'Surface Casing'),
-        ('Intermediate Casing', 'Intermediate Casing'),
-        ('Production Casing', 'Production Casing'),
-        ('Liner', 'Liner'),
-        ('Open Hole', 'Open Hole'),
-    ]
-
-    # Survey Tool Type choices
-    SURVEY_TOOL_TYPE_CHOICES = [
-        ('MWD', 'MWD'),
-        ('LWD', 'LWD'),
-        ('Wireline Gyro', 'Wireline Gyro'),
-        ('Steering Tool', 'Steering Tool'),
-        ('Other', 'Other'),
-    ]
-
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -94,27 +76,57 @@ class TieOn(models.Model):
         help_text='Type of well'
     )
 
-    # Survey details
-    hole_section = models.CharField(
-        max_length=100,
-        choices=HOLE_SECTION_CHOICES,
-        help_text='Hole section type'
+    # Master data relationships
+    hole_section_master = models.ForeignKey(
+        'HoleSectionMaster',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tieons',
+        help_text='Selected hole section from master data'
     )
 
-    casing_selected = models.BooleanField(
-        default=False,
-        help_text='Casing checkbox selection'
+    survey_run_in_type = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        choices=[
+            ('casing', 'Casing'),
+            ('drill_pipe', 'Drill Pipe'),
+            ('tubing', 'Tubing'),
+        ],
+        help_text='Survey run-in type (casing or drill pipe)'
     )
 
-    drillpipe_selected = models.BooleanField(
-        default=False,
-        help_text='Drillpipe checkbox selection'
+    survey_run_in = models.ForeignKey(
+        'SurveyRunInMaster',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tieons',
+        help_text='Selected survey run-in from master data'
     )
 
-    survey_tool_type = models.CharField(
-        max_length=100,
-        choices=SURVEY_TOOL_TYPE_CHOICES,
-        help_text='Survey tool type'
+    minimum_id = models.ForeignKey(
+        'MinimumIdMaster',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tieons',
+        help_text='Selected minimum ID from master data'
+    )
+
+    # Expected inclination for auto-setting well type
+    expected_inclination = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(Decimal('0.00')),
+            MaxValueValidator(Decimal('180.00'))
+        ],
+        help_text='Expected inclination (<=5° = Vertical, >5° = Deviated)'
     )
 
     # Survey interval

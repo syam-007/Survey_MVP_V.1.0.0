@@ -21,11 +21,11 @@ import type { ElevationReference, CreateDepthInput } from '../../../types';
 const depthSchema = yup.object({
   elevation_reference: yup
     .mixed<ElevationReference>()
-    .oneOf(['KB', 'RT', 'Ground Level', 'Mean Sea Level', 'Other'])
+    .oneOf(['KB', 'RT', 'GL', 'MSL', 'DF', 'RKB'])
     .required('Elevation reference is required'),
   reference_datum: yup
     .string()
-    .required('Reference datum is required')
+    .nullable()
     .max(100, 'Reference datum cannot exceed 100 characters'),
   reference_height: yup
     .number()
@@ -58,7 +58,11 @@ export const DepthStep: React.FC<DepthStepProps> = ({
     formState: { errors },
   } = useForm<Partial<CreateDepthInput>>({
     resolver: yupResolver(depthSchema) as any,
-    defaultValues: data,
+    defaultValues: {
+      ...data,
+      elevation_reference: data.elevation_reference || 'MSL', // Default to MSL (Mean Sea Level)
+      reference_datum: 'RKB/DFE(Drill Floor Elevation)', // Default (read-only)
+    },
     mode: 'onBlur',
   });
 
@@ -100,9 +104,10 @@ export const DepthStep: React.FC<DepthStepProps> = ({
                 >
                   <MenuItem value="KB">KB (Kelly Bushing)</MenuItem>
                   <MenuItem value="RT">RT (Rotary Table)</MenuItem>
-                  <MenuItem value="Ground Level">Ground Level</MenuItem>
-                  <MenuItem value="Mean Sea Level">Mean Sea Level</MenuItem>
-                  <MenuItem value="Other">Other</MenuItem>
+                  <MenuItem value="GL">GL (Ground Level)</MenuItem>
+                  <MenuItem value="MSL">MSL (Mean Sea Level)</MenuItem>
+                  <MenuItem value="DF">DF (Derrick Floor)</MenuItem>
+                  <MenuItem value="RKB">RKB (Rotary Kelly Bushing)</MenuItem>
                 </Select>
               )}
             />
@@ -112,7 +117,7 @@ export const DepthStep: React.FC<DepthStepProps> = ({
           </FormControl>
         </Grid>
 
-        {/* Reference Datum */}
+        {/* Reference Datum - Read Only */}
         <Grid item xs={12} sm={6}>
           <Controller
             name="reference_datum"
@@ -122,10 +127,12 @@ export const DepthStep: React.FC<DepthStepProps> = ({
                 {...field}
                 label="Reference Datum"
                 fullWidth
-                required
-                error={!!errors.reference_datum}
-                helperText={errors.reference_datum?.message}
-                placeholder="e.g., WGS84, NAVD88"
+                disabled
+                value="RKB/DFE(Drill Floor Elevation)"
+                helperText="Default reference datum (read-only)"
+                InputProps={{
+                  readOnly: true,
+                }}
               />
             )}
           />

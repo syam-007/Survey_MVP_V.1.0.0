@@ -134,6 +134,139 @@ class SurveysService {
   }
 
   /**
+   * Upload survey file with progress tracking
+   * @param formData - FormData containing file, run_id, and survey_type
+   * @param onProgress - Optional callback for upload progress (0-100)
+   * @returns Upload result with survey_data ID
+   */
+  async uploadSurveyFile(
+    formData: FormData,
+    onProgress?: (progress: number) => void
+  ): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+
+      // Track upload progress
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable && onProgress) {
+          const progress = Math.round((event.loaded / event.total) * 100);
+          onProgress(progress);
+        }
+      });
+
+      // Handle successful upload
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText));
+          } catch (e) {
+            reject(new Error('Invalid response from server'));
+          }
+        } else {
+          try {
+            const errorData = JSON.parse(xhr.responseText);
+            reject(new Error(errorData.error || `Upload failed: ${xhr.statusText}`));
+          } catch (e) {
+            reject(new Error(`Upload failed: ${xhr.statusText}`));
+          }
+        }
+      });
+
+      // Handle network errors
+      xhr.addEventListener('error', () => {
+        reject(new Error('Network error during upload'));
+      });
+
+      // Configure and send request
+      xhr.open('POST', `${API_BASE_URL}/api/v1/surveys/upload/`);
+
+      const token = authService.getAccessToken();
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      }
+
+      xhr.send(formData);
+    });
+  }
+
+  /**
+   * Delete a survey file and its associated data
+   * @param fileId - Survey file UUID
+   */
+  async deleteSurveyFile(fileId: string): Promise<void> {
+    try {
+      await this.api.delete(`/api/v1/surveys/files/${fileId}/delete/`);
+    } catch (error: any) {
+      throw this.handleError(error, 'Failed to delete survey file');
+    }
+  }
+
+  /**
+   * Get survey processing status
+   * @param surveyDataId - Survey data UUID
+   * @returns Processing status information
+   */
+  async getSurveyStatus(surveyDataId: string): Promise<any> {
+    try {
+      const response = await this.api.get(`/api/v1/surveys/status/${surveyDataId}/`);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error, 'Failed to get survey status');
+    }
+  }
+
+  /**
+   * Trigger interpolation for a calculated survey
+   * @param calculatedSurveyId - Calculated survey UUID
+   * @param resolution - Interpolation resolution in meters (1-100)
+   * @returns Interpolation result
+   */
+  async triggerInterpolation(calculatedSurveyId: string, resolution: number): Promise<any> {
+    try {
+      const response = await this.api.post(
+        `/api/v1/calculations/${calculatedSurveyId}/interpolate/`,
+        { resolution }
+      );
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error, 'Failed to trigger interpolation');
+    }
+  }
+
+  /**
+   * Get interpolated survey data
+   * @param calculatedSurveyId - Calculated survey UUID
+   * @param resolution - Interpolation resolution
+   * @returns Interpolated survey data
+   */
+  async getInterpolation(calculatedSurveyId: string, resolution: number): Promise<any> {
+    try {
+      const response = await this.api.get(
+        `/api/v1/calculations/${calculatedSurveyId}/interpolation/${resolution}/`
+      );
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error, 'Failed to get interpolation');
+    }
+  }
+
+  /**
+   * List all interpolations for a calculated survey
+   * @param calculatedSurveyId - Calculated survey UUID
+   * @returns List of interpolations
+   */
+  async listInterpolations(calculatedSurveyId: string): Promise<any[]> {
+    try {
+      const response = await this.api.get(
+        `/api/v1/calculations/${calculatedSurveyId}/interpolations/`
+      );
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error, 'Failed to list interpolations');
+    }
+  }
+
+  /**
    * Handle API errors and return user-friendly error messages
    */
   private handleError(error: any, defaultMessage: string): Error {

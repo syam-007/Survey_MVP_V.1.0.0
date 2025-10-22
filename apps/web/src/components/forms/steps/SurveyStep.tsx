@@ -24,11 +24,11 @@ import type { SurveyType, CreateSurveyInput } from '../../../types';
 const surveySchema = yup.object({
   survey_type: yup
     .mixed<SurveyType>()
-    .oneOf(['Minimum Curvature', 'Balanced Tangential', 'Average Angle', 'Radius of Curvature'])
+    .oneOf(['Type 1 - GTL', 'Type 2 - Gyro', 'Type 3 - MWD', 'Type 4 - Unknown'])
     .required('Survey type is required'),
   file_path: yup
     .string()
-    .required('File path is required')
+    .nullable()
     .max(255, 'File path cannot exceed 255 characters'),
   required_columns: yup.object({
     md: yup.boolean().required(),
@@ -99,10 +99,10 @@ export const SurveyStep: React.FC<SurveyStepProps> = ({
                   labelId="survey-type-label"
                   label="Survey Type"
                 >
-                  <MenuItem value="Minimum Curvature">Minimum Curvature</MenuItem>
-                  <MenuItem value="Balanced Tangential">Balanced Tangential</MenuItem>
-                  <MenuItem value="Average Angle">Average Angle</MenuItem>
-                  <MenuItem value="Radius of Curvature">Radius of Curvature</MenuItem>
+                  <MenuItem value="Type 1 - GTL">Type 1 - GTL</MenuItem>
+                  <MenuItem value="Type 2 - Gyro">Type 2 - Gyro</MenuItem>
+                  <MenuItem value="Type 3 - MWD">Type 3 - MWD </MenuItem>
+                  <MenuItem value="Type 4 - Unknown">Type 4 - Unknown</MenuItem>
                 </Select>
               )}
             />
@@ -112,7 +112,7 @@ export const SurveyStep: React.FC<SurveyStepProps> = ({
           </FormControl>
         </Grid>
 
-        {/* File Path */}
+        {/* File Path - Optional (files are uploaded separately) */}
         <Grid item xs={12} sm={6}>
           <Controller
             name="file_path"
@@ -120,12 +120,12 @@ export const SurveyStep: React.FC<SurveyStepProps> = ({
             render={({ field }) => (
               <TextField
                 {...field}
-                label="Survey File Path"
+                label="Survey File Path (Optional)"
                 fullWidth
-                required
                 error={!!errors.file_path}
-                helperText={errors.file_path?.message}
-                placeholder="e.g., /surveys/RUN-001.csv"
+                helperText={errors.file_path?.message || 'Leave empty - files will be uploaded after run creation'}
+                placeholder="Auto-generated after file upload"
+                disabled
               />
             )}
           />

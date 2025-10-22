@@ -145,7 +145,7 @@ export const RunListPage: React.FC = () => {
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => navigate('/runs/new')}
+              onClick={() => navigate('/runs/new/complete')}
             >
               Create Run
             </Button>
@@ -228,6 +228,7 @@ export const RunListPage: React.FC = () => {
                   <TableCell>Run Name</TableCell>
                   <TableCell>Type</TableCell>
                   <TableCell>Well</TableCell>
+                  <TableCell align="center">Surveys</TableCell>
                   <TableCell>Created At</TableCell>
                   <TableCell>Created By</TableCell>
                   <TableCell align="right">Actions</TableCell>
@@ -247,6 +248,14 @@ export const RunListPage: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       {run.well ? run.well.well_name : '-'}
+                    </TableCell>
+                    <TableCell align="center">
+                      <Chip
+                        label={run.survey_files_count || 0}
+                        color={run.survey_files_count ? 'primary' : 'default'}
+                        size="small"
+                        variant={run.survey_files_count ? 'filled' : 'outlined'}
+                      />
                     </TableCell>
                     <TableCell>
                       {format(new Date(run.created_at), 'MMM dd, yyyy')}
@@ -302,7 +311,7 @@ export const RunListPage: React.FC = () => {
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => navigate('/runs/new')}
+              onClick={() => navigate('/runs/new/complete')}
               sx={{ mt: 2 }}
             >
               Create First Run

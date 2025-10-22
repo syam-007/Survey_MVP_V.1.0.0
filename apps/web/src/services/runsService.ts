@@ -168,6 +168,36 @@ class RunsService {
   }
 
   /**
+   * Validate if run number or run name already exists
+   * @param runNumber - Run number to check
+   * @param runName - Run name to check
+   * @param excludeId - Optional run ID to exclude from check (for updates)
+   * @returns Object indicating if run_number or run_name exists
+   */
+  async validateUnique(
+    runNumber?: string,
+    runName?: string,
+    excludeId?: string
+  ): Promise<{ run_number_exists: boolean; run_name_exists: boolean }> {
+    try {
+      const params = new URLSearchParams();
+      if (runNumber) params.append('run_number', runNumber);
+      if (runName) params.append('run_name', runName);
+      if (excludeId) params.append('exclude_id', excludeId);
+
+      const response = await this.api.get<{ run_number_exists: boolean; run_name_exists: boolean }>(
+        `/api/v1/runs/validate_unique/?${params.toString()}`
+      );
+      return response.data;
+    } catch (error: any) {
+      // On error, assume doesn't exist to allow form submission attempt
+      // Backend will properly validate on submission
+      console.error('Validation check failed:', error);
+      return { run_number_exists: false, run_name_exists: false };
+    }
+  }
+
+  /**
    * Handle API errors and return user-friendly error messages
    */
   private handleError(error: any, defaultMessage: string): Error {

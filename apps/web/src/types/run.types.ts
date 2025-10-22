@@ -17,6 +17,17 @@ export interface RunDepth {
   reference_height: number;
 }
 
+export interface RunTieOn {
+  id: string;
+  md: number;
+  inc: number;
+  azi: number;
+  tvd: number;
+  latitude: number;  // Northing (field named latitude for historical reasons)
+  departure: number; // Easting (field named departure for historical reasons)
+  well_type: string;
+}
+
 export interface RunWell {
   id: string;
   well_name: string;
@@ -27,6 +38,16 @@ export interface RunUser {
   id: string;
   username: string;
   email: string;
+}
+
+export interface SurveyFile {
+  id: string;
+  filename: string;
+  survey_type: string;
+  processing_status: 'pending' | 'processing' | 'completed' | 'failed';
+  upload_date: string;
+  file_size: number;
+  survey_data_id?: string;
 }
 
 export interface Run {
@@ -41,6 +62,10 @@ export interface Run {
   well: RunWell | null;
   location: RunLocation | null;
   depth: RunDepth | null;
+  tieon: RunTieOn | null;
+  has_tieon: boolean; // Indicates if run has tie-on data (required for calculations)
+  survey_files?: SurveyFile[];
+  survey_files_count?: number;
   user: RunUser;
   created_at: string;
   updated_at: string;

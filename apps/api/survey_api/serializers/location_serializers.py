@@ -14,6 +14,8 @@ class LocationSerializer(serializers.ModelSerializer):
     Calculated fields (easting, northing, grid_correction, g_t, max_g_t, w_t, max_w_t)
     are read-only as they are computed automatically.
     """
+    north_coordinate = serializers.SerializerMethodField()
+    east_coordinate = serializers.SerializerMethodField()
 
     class Meta:
         model = Location
@@ -23,8 +25,17 @@ class LocationSerializer(serializers.ModelSerializer):
             'well',
             'latitude',
             'longitude',
+            'latitude_degrees',
+            'latitude_minutes',
+            'latitude_seconds',
+            'longitude_degrees',
+            'longitude_minutes',
+            'longitude_seconds',
+            'north_coordinate',
+            'east_coordinate',
             'easting',
             'northing',
+            'geodetic_datum',
             'geodetic_system',
             'map_zone',
             'north_reference',
@@ -39,6 +50,8 @@ class LocationSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id',
+            'north_coordinate',
+            'east_coordinate',
             'easting',
             'northing',
             'grid_correction',
@@ -50,17 +63,29 @@ class LocationSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
 
+    def get_north_coordinate(self, obj):
+        """Get calculated north coordinate from DMS"""
+        return obj.get_north_coordinate
+
+    def get_east_coordinate(self, obj):
+        """Get calculated east coordinate from DMS"""
+        return obj.get_east_coordinate
+
 
 class CreateLocationSerializer(serializers.ModelSerializer):
     """
     Serializer for creating Location instances with validation.
 
     Validates:
-    - Latitude range: -90 to 90
-    - Longitude range: -180 to 180
+    - Latitude range: -90 to 90 (if provided, otherwise calculated from DMS)
+    - Longitude range: -180 to 180 (if provided, otherwise calculated from DMS)
     - Exactly one of run or well must be set (run XOR well)
 
     Calculated fields are automatically computed via LocationService.
+    geodetic_datum defaults to "PSD 93" and is read-only.
+    geodetic_system defaults to "Universal Transverse Mercator" and is read-only.
+    map_zone defaults to "Zone 40N(54E to 60E)" and is read-only.
+    north_reference defaults to "Grid North" and is read-only.
     """
 
     class Meta:
@@ -70,30 +95,42 @@ class CreateLocationSerializer(serializers.ModelSerializer):
             'well',
             'latitude',
             'longitude',
+            'latitude_degrees',
+            'latitude_minutes',
+            'latitude_seconds',
+            'longitude_degrees',
+            'longitude_minutes',
+            'longitude_seconds',
+            'geodetic_datum',
             'geodetic_system',
             'map_zone',
             'north_reference',
             'central_meridian',
         ]
+        read_only_fields = ['geodetic_datum', 'geodetic_system', 'map_zone', 'north_reference']
 
     def validate_latitude(self, value):
         """
         Validate latitude is within valid range (-90 to 90).
+        Allow None as it will be calculated from DMS values.
         """
-        if value < Decimal('-90.0') or value > Decimal('90.0'):
-            raise serializers.ValidationError(
-                'Latitude must be between -90 and 90 degrees'
-            )
+        if value is not None:
+            if value < Decimal('-90.0') or value > Decimal('90.0'):
+                raise serializers.ValidationError(
+                    'Latitude must be between -90 and 90 degrees'
+                )
         return value
 
     def validate_longitude(self, value):
         """
         Validate longitude is within valid range (-180 to 180).
+        Allow None as it will be calculated from DMS values.
         """
-        if value < Decimal('-180.0') or value > Decimal('180.0'):
-            raise serializers.ValidationError(
-                'Longitude must be between -180 and 180 degrees'
-            )
+        if value is not None:
+            if value < Decimal('-180.0') or value > Decimal('180.0'):
+                raise serializers.ValidationError(
+                    'Longitude must be between -180 and 180 degrees'
+                )
         return value
 
     def validate(self, attrs):
@@ -135,6 +172,7 @@ class UpdateLocationSerializer(serializers.ModelSerializer):
 
     If coordinate fields (latitude, longitude, central_meridian, geodetic_system, map_zone)
     are modified, all calculated fields are automatically recalculated.
+    geodetic_datum, geodetic_system, map_zone, and north_reference are read-only and cannot be updated.
     """
 
     class Meta:
@@ -142,11 +180,19 @@ class UpdateLocationSerializer(serializers.ModelSerializer):
         fields = [
             'latitude',
             'longitude',
+            'latitude_degrees',
+            'latitude_minutes',
+            'latitude_seconds',
+            'longitude_degrees',
+            'longitude_minutes',
+            'longitude_seconds',
+            'geodetic_datum',
             'geodetic_system',
             'map_zone',
             'north_reference',
             'central_meridian',
         ]
+        read_only_fields = ['geodetic_datum', 'geodetic_system', 'map_zone', 'north_reference']
 
     def validate_latitude(self, value):
         """

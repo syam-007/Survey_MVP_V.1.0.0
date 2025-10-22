@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from decimal import Decimal
-from survey_api.models import Well, Run, Location, Depth, SurveyFile, SurveyCalculation
+from survey_api.models import Well, Run, Location, Depth, SurveyFile, SurveyCalculation, SurveyData, CalculatedSurvey, TieOn
 
 User = get_user_model()
 
@@ -876,3 +876,172 @@ class ModelRelationshipIntegrationTest(TestCase):
         # Verify both calculations deleted
         self.assertFalse(SurveyCalculation.objects.filter(id=calc1_id).exists())
         self.assertFalse(SurveyCalculation.objects.filter(id=calc2_id).exists())
+
+
+class SurveyDataModelTest(TestCase):
+    """Test cases for SurveyData model"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='testuser',
+            email='test@example.com',
+            password='testpass123'
+        )
+        self.run = Run.objects.create(
+            run_number='RUN001',
+            run_name='Test Run',
+            run_type='GTL',
+            user=self.user
+        )
+        self.survey_file = SurveyFile.objects.create(
+            run=self.run,
+            file_name='survey_data.xlsx',
+            file_path='/uploads/survey_data.xlsx',
+            file_size=102400,
+            survey_type='GTL'
+        )
+
+    def test_survey_data_creation(self):
+        """Test successful survey data creation"""
+        from survey_api.models import SurveyData
+        survey_data = SurveyData.objects.create(
+            survey_file=self.survey_file,
+            md_data=[0, 100, 200, 300],
+            inc_data=[0, 5, 10, 15],
+            azi_data=[0, 45, 90, 135],
+            wt_data=[0.1, 0.2, 0.3, 0.4],
+            gt_data=[0.2, 0.3, 0.4, 0.5],
+            row_count=4,
+            validation_status='valid'
+        )
+        self.assertEqual(survey_data.md_data, [0, 100, 200, 300])
+        self.assertEqual(survey_data.inc_data, [0, 5, 10, 15])
+        self.assertEqual(survey_data.azi_data, [0, 45, 90, 135])
+        self.assertEqual(survey_data.row_count, 4)
+        self.assertEqual(survey_data.validation_status, 'valid')
+        self.assertIsNotNone(survey_data.id)
+        self.assertIsNotNone(survey_data.created_at)
+        self.assertIsNotNone(survey_data.updated_at)
+
+    def test_survey_data_gtl_columns(self):
+        """Test GTL-specific columns (wt_data, gt_data)"""
+        from survey_api.models import SurveyData
+        survey_data = SurveyData.objects.create(
+            survey_file=self.survey_file,
+            md_data=[0, 100],
+            inc_data=[0, 5],
+            azi_data=[0, 45],
+            wt_data=[0.1, 0.2],
+            gt_data=[0.2, 0.3],
+            row_count=2
+        )
+        self.assertEqual(survey_data.wt_data, [0.1, 0.2])
+        self.assertEqual(survey_data.gt_data, [0.2, 0.3])
+
+    def test_survey_data_optional_gtl_columns(self):
+        """Test that GTL columns are optional"""
+        from survey_api.models import SurveyData
+        survey_data = SurveyData.objects.create(
+            survey_file=self.survey_file,
+            md_data=[0, 100],
+            inc_data=[0, 5],
+            azi_data=[0, 45],
+            row_count=2
+        )
+        self.assertIsNone(survey_data.wt_data)
+        self.assertIsNone(survey_data.gt_data)
+
+    def test_survey_data_default_validation_status(self):
+        """Test validation_status default value"""
+        from survey_api.models import SurveyData
+        survey_data = SurveyData.objects.create(
+            survey_file=self.survey_file,
+            md_data=[0],
+            inc_data=[0],
+            azi_data=[0],
+            row_count=1
+        )
+        self.assertEqual(survey_data.validation_status, 'pending')
+
+    def test_survey_data_validation_errors(self):
+        """Test validation_errors JSONField storage"""
+        from survey_api.models import SurveyData
+        errors = [
+            "Missing required column: w(t)",
+            "Inclination value 185 exceeds maximum (180)"
+        ]
+        survey_data = SurveyData.objects.create(
+            survey_file=self.survey_file,
+            md_data=[0, 100],
+            inc_data=[0, 185],
+            azi_data=[0, 45],
+            row_count=2,
+            validation_status='invalid',
+            validation_errors=errors
+        )
+        survey_data.refresh_from_db()
+        self.assertEqual(survey_data.validation_errors, errors)
+        self.assertEqual(len(survey_data.validation_errors), 2)
+
+    def test_survey_data_str(self):
+        """Test survey data string representation"""
+        from survey_api.models import SurveyData
+        survey_data = SurveyData.objects.create(
+            survey_file=self.survey_file,
+            md_data=[0],
+            inc_data=[0],
+            azi_data=[0],
+            row_count=1,
+            validation_status='valid'
+        )
+        self.assertEqual(
+            str(survey_data),
+            'SurveyData for survey_data.xlsx (valid)'
+        )
+
+    def test_survey_data_survey_file_relationship(self):
+        """Test SurveyData-SurveyFile OneToOne relationship"""
+        from survey_api.models import SurveyData
+        survey_data = SurveyData.objects.create(
+            survey_file=self.survey_file,
+            md_data=[0],
+            inc_data=[0],
+            azi_data=[0],
+            row_count=1
+        )
+        self.assertEqual(survey_data.survey_file, self.survey_file)
+        self.assertEqual(self.survey_file.survey_data, survey_data)
+
+    def test_survey_data_cascade_on_file_delete(self):
+        """Test SurveyData is deleted when SurveyFile is deleted (CASCADE)"""
+        from survey_api.models import SurveyData
+        survey_data = SurveyData.objects.create(
+            survey_file=self.survey_file,
+            md_data=[0],
+            inc_data=[0],
+            azi_data=[0],
+            row_count=1
+        )
+        data_id = survey_data.id
+        self.survey_file.delete()
+        self.assertFalse(SurveyData.objects.filter(id=data_id).exists())
+
+    def test_survey_data_onetoone_constraint(self):
+        """Test OneToOne constraint prevents duplicate survey_data for same file"""
+        from survey_api.models import SurveyData
+        from django.db import IntegrityError
+        SurveyData.objects.create(
+            survey_file=self.survey_file,
+            md_data=[0],
+            inc_data=[0],
+            azi_data=[0],
+            row_count=1
+        )
+        with self.assertRaises(IntegrityError):
+            SurveyData.objects.create(
+                survey_file=self.survey_file,
+                md_data=[0],
+                inc_data=[0],
+                azi_data=[0],
+                row_count=1
+            )

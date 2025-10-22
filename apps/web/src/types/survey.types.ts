@@ -21,7 +21,7 @@ export interface SurveyRequiredColumns {
 export interface CreateSurveyInput {
   run: string; // UUID
   survey_type: SurveyType;
-  file_path: string;
+  file_path?: string; // Optional - files are uploaded separately after run creation
   required_columns: SurveyRequiredColumns;
 }
 

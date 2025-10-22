@@ -91,3 +91,15 @@ class IsViewer(permissions.BasePermission):
 
     def has_permission(self, request, view):
         return bool(request.user and request.user.is_authenticated)
+
+
+class IsComparisonOwner(permissions.BasePermission):
+    """
+    Object-level permission to only allow owners of a comparison to access it.
+
+    Used for comparison endpoints to ensure users can only view/modify their own comparisons.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        # Check if the comparison was created by the requesting user
+        return obj.created_by == request.user

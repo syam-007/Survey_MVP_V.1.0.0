@@ -3,7 +3,7 @@
  * Based on Story 3.2 - Depth Information API Data Models
  */
 
-export type ElevationReference = 'KB' | 'RT' | 'Ground Level' | 'Mean Sea Level' | 'Other';
+export type ElevationReference = 'KB' | 'RT' | 'GL' | 'MSL' | 'DF' | 'RKB';
 
 /**
  * Input data for creating new depth information (user-provided fields)
@@ -11,8 +11,8 @@ export type ElevationReference = 'KB' | 'RT' | 'Ground Level' | 'Mean Sea Level'
 export interface CreateDepthInput {
   run: string; // UUID
   well: string; // UUID
-  elevation_reference: ElevationReference;
-  reference_datum: string;
+  elevation_reference: ElevationReference; // Defaults to "MSL" (Mean Sea Level)
+  reference_datum?: string; // Defaults to "RKB/DFE(Drill Floor Elevation)" (read-only)
   reference_height: number;
   reference_elevation: number;
 }

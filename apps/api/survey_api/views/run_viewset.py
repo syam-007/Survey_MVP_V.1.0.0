@@ -6,6 +6,7 @@ filtering, pagination, and soft delete functionality.
 """
 
 from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
@@ -18,6 +19,7 @@ from survey_api.services.run_service import RunService
 from survey_api.filters import RunFilter
 from survey_api.pagination import StandardResultsSetPagination
 from survey_api.exceptions import RunNotFoundError, UnauthorizedError
+from survey_api.views.activity_log_viewset import log_activity
 
 
 class RunViewSet(viewsets.ModelViewSet):
@@ -78,15 +80,47 @@ class RunViewSet(viewsets.ModelViewSet):
         Create a new run using RunService.
         Sets the authenticated user as the owner.
         """
-        data = serializer.validated_data
-        run = RunService.create_run(data, self.request.user)
-        serializer.instance = run
+        import logging
+        logger = logging.getLogger(__name__)
+
+        try:
+            logger.info(f"perform_create called with data: {serializer.validated_data}")
+            logger.info(f"Request user: {self.request.user}, Role: {getattr(self.request.user, 'role', 'N/A')}")
+
+            data = serializer.validated_data
+            run = RunService.create_run(data, self.request.user)
+            serializer.instance = run
+
+            logger.info(f"Successfully created run: {run.id}")
+
+            # Log activity
+            try:
+                log_activity(
+                    run_id=run.id,
+                    user=self.request.user,
+                    activity_type='run_created',
+                    description=f'Created run: {run.run_name}',
+                    metadata={
+                        'run_number': run.run_number,
+                        'run_name': run.run_name,
+                        'well_id': str(run.well.id) if run.well else None,
+                        'well_name': run.well.well_name if run.well else None
+                    }
+                )
+            except Exception as log_error:
+                logger.warning(f"Failed to log run creation: {str(log_error)}")
+        except Exception as e:
+            logger.error(f"Error in perform_create: {str(e)}", exc_info=True)
+            raise
 
     def perform_update(self, serializer):
         """
         Update a run using RunService.
         Checks ownership permissions (admin or owner only).
         """
+        import logging
+        logger = logging.getLogger(__name__)
+
         try:
             data = serializer.validated_data
             run = RunService.update_run(
@@ -95,6 +129,27 @@ class RunViewSet(viewsets.ModelViewSet):
                 self.request.user
             )
             serializer.instance = run
+
+            # Log activity
+            try:
+                # Build change summary from validated data
+                changes = []
+                for field, value in data.items():
+                    changes.append(f"{field}")
+
+                log_activity(
+                    run_id=run.id,
+                    user=self.request.user,
+                    activity_type='run_updated',
+                    description=f'Updated run: {run.run_name}',
+                    metadata={
+                        'run_number': run.run_number,
+                        'run_name': run.run_name,
+                        'fields_updated': changes
+                    }
+                )
+            except Exception as log_error:
+                logger.warning(f"Failed to log run update: {str(log_error)}")
         except PermissionError as e:
             raise UnauthorizedError(str(e))
         except Run.DoesNotExist:
@@ -136,3 +191,42 @@ class RunViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def validate_unique(self, request):
+        """
+        Validate if run_number or run_name already exists.
+
+        Query params:
+        - run_number: Check if this run number exists
+        - run_name: Check if this run name exists
+        - exclude_id: Optional run ID to exclude from check (for updates)
+
+        Returns:
+        {
+            "run_number_exists": boolean,
+            "run_name_exists": boolean
+        }
+        """
+        run_number = request.query_params.get('run_number', '').strip()
+        run_name = request.query_params.get('run_name', '').strip()
+        exclude_id = request.query_params.get('exclude_id')
+
+        result = {
+            'run_number_exists': False,
+            'run_name_exists': False
+        }
+
+        if run_number:
+            query = Run.objects.filter(run_number=run_number, deleted=False)
+            if exclude_id:
+                query = query.exclude(id=exclude_id)
+            result['run_number_exists'] = query.exists()
+
+        if run_name:
+            query = Run.objects.filter(run_name=run_name, deleted=False)
+            if exclude_id:
+                query = query.exclude(id=exclude_id)
+            result['run_name_exists'] = query.exists()
+
+        return Response(result)

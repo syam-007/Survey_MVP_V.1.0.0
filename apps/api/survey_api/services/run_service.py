@@ -77,10 +77,23 @@ class RunService:
         Returns:
             Created Run object
         """
-        # Set the user as the owner
-        data['user'] = user
-        run = Run.objects.create(**data)
-        return run
+        import logging
+        logger = logging.getLogger(__name__)
+
+        try:
+            logger.info(f"create_run called with data: {data}")
+            logger.info(f"User: {user}, Type: {type(user)}, Has role: {hasattr(user, 'role')}")
+
+            # Set the user as the owner
+            data['user'] = user
+            logger.info(f"Creating Run with: {data}")
+
+            run = Run.objects.create(**data)
+            logger.info(f"Run created successfully: {run.id}")
+            return run
+        except Exception as e:
+            logger.error(f"Error creating run: {str(e)}", exc_info=True)
+            raise
 
     @staticmethod
     def update_run(run_id, data, user):

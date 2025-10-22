@@ -41,6 +41,9 @@ class CreateDepthSerializer(serializers.ModelSerializer):
     - elevation_reference is one of the valid choices (KB, RT, GL, MSL, etc.)
     - Exactly one of run or well must be set (run XOR well)
     - All required fields are provided
+
+    elevation_reference defaults to "MSL" (Mean Sea Level).
+    reference_datum defaults to "RKB/DFE(Drill Floor Elevation)" and is read-only.
     """
 
     class Meta:
@@ -53,6 +56,7 @@ class CreateDepthSerializer(serializers.ModelSerializer):
             'reference_height',
             'reference_elevation',
         ]
+        read_only_fields = ['reference_datum']
 
     def validate(self, attrs):
         """
@@ -79,6 +83,7 @@ class UpdateDepthSerializer(serializers.ModelSerializer):
     Serializer for updating Depth instances.
 
     Allows partial updates. Run and well associations cannot be changed after creation.
+    reference_datum is read-only and cannot be updated.
     """
 
     class Meta:
@@ -89,6 +94,7 @@ class UpdateDepthSerializer(serializers.ModelSerializer):
             'reference_height',
             'reference_elevation',
         ]
+        read_only_fields = ['reference_datum']
 
     def validate_elevation_reference(self, value):
         """

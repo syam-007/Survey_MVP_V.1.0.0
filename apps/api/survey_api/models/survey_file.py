@@ -24,6 +24,12 @@ class SurveyFile(models.Model):
         ('failed', 'Failed'),
     ]
 
+    SURVEY_ROLE_CHOICES = [
+        ('primary', 'Primary Survey'),
+        ('reference', 'Reference Survey'),
+        ('comparison', 'Comparison Survey'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     run = models.ForeignKey(
         'Run',
@@ -39,6 +45,23 @@ class SurveyFile(models.Model):
         choices=PROCESSING_STATUS_CHOICES,
         default='uploaded'
     )
+
+    # Survey role and reference tracking
+    survey_role = models.CharField(
+        max_length=20,
+        choices=SURVEY_ROLE_CHOICES,
+        default='primary',
+        help_text="Role of this survey: primary (actual), reference (planned/baseline), or comparison"
+    )
+    reference_for_survey = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reference_surveys',
+        help_text="Primary survey this is a reference for (if survey_role='reference')"
+    )
+
     calculated_data = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -46,9 +69,12 @@ class SurveyFile(models.Model):
         db_table = 'survey_files'
         verbose_name = 'Survey File'
         verbose_name_plural = 'Survey Files'
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['run'], name='idx_survey_files_run_id'),
             models.Index(fields=['processing_status'], name='idx_survey_files_status'),
+            models.Index(fields=['run', 'survey_role'], name='idx_survey_files_run_role'),
+            models.Index(fields=['reference_for_survey'], name='idx_survey_files_ref_for'),
         ]
 
     def __str__(self):

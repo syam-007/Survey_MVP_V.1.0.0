@@ -52,9 +52,17 @@ export type {
 // Re-export all tieon types
 export type {
   WellType,
-  HoleSection,
-  SurveyToolType,
+  SurveyRunInType,
   CreateTieOnInput,
   TieOn,
   UpdateTieOnInput,
 } from './tieon.types';
+
+// Re-export all master data types
+export type {
+  SectionType,
+  RunInType,
+  HoleSectionMaster,
+  SurveyRunInMaster,
+  MinimumIdMaster,
+} from './master-data.types';

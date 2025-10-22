@@ -194,12 +194,46 @@ class LocationService:
             Dictionary with all calculated fields added
         """
         try:
+            logger.info(f"create_location_with_calculations called with data keys: {data.keys()}")
+
             # Extract required fields
             latitude = data.get('latitude')
             longitude = data.get('longitude')
+
+            logger.info(f"Initial latitude: {latitude}, longitude: {longitude}")
+
+            # If latitude/longitude not provided, calculate from DMS
+            if latitude is None and data.get('latitude_degrees') is not None:
+                lat_deg = data.get('latitude_degrees')
+                lat_min = data.get('latitude_minutes', 0) if data.get('latitude_minutes') is not None else 0
+                lat_sec = data.get('latitude_seconds', 0) if data.get('latitude_seconds') is not None else 0
+                lat_sec = float(lat_sec)
+                # Calculate and quantize to 8 decimal places to match model (max_digits=10, decimal_places=8)
+                latitude = Decimal(str(lat_deg + (((lat_sec / 60) + lat_min) / 60))).quantize(Decimal('0.00000001'))
+                data['latitude'] = latitude
+                logger.info(f"Converted DMS to decimal latitude: {lat_deg}° {lat_min}' {lat_sec}\" = {latitude}")
+
+            if longitude is None and data.get('longitude_degrees') is not None:
+                lon_deg = data.get('longitude_degrees')
+                lon_min = data.get('longitude_minutes', 0) if data.get('longitude_minutes') is not None else 0
+                lon_sec = data.get('longitude_seconds', 0) if data.get('longitude_seconds') is not None else 0
+                lon_sec = float(lon_sec)
+                # Calculate and quantize to 8 decimal places to match model (max_digits=11, decimal_places=8)
+                longitude = Decimal(str(lon_deg + (((lon_sec / 60) + lon_min) / 60))).quantize(Decimal('0.00000001'))
+                data['longitude'] = longitude
+                logger.info(f"Converted DMS to decimal longitude: {lon_deg}° {lon_min}' {lon_sec}\" = {longitude}")
+
+            # Validate that we have latitude and longitude
+            if latitude is None:
+                raise ValueError("Latitude is required (provide either 'latitude' or 'latitude_degrees')")
+            if longitude is None:
+                raise ValueError("Longitude is required (provide either 'longitude' or 'longitude_degrees')")
+
             geodetic_system = data.get('geodetic_system')
             map_zone = data.get('map_zone')
             central_meridian = data.get('central_meridian', Decimal('0.0'))  # Default to 0.0
+
+            logger.info(f"Calculating UTM coordinates for lat={latitude}, lon={longitude}")
 
             # Calculate UTM coordinates
             easting, northing = cls.calculate_utm_coordinates(

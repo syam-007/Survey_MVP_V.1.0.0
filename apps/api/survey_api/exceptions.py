@@ -29,6 +29,76 @@ class ValidationError(Exception):
         self.field_errors = field_errors or {}
 
 
+class FileValidationError(Exception):
+    """
+    Raised when uploaded file fails validation.
+
+    This exception should be raised when survey file validation fails
+    (e.g., missing columns, invalid ranges, sequence errors).
+    """
+    pass
+
+
+class FileParsingError(Exception):
+    """
+    Raised when file cannot be parsed.
+
+    This exception should be raised when the file cannot be read or parsed
+    (e.g., corrupt file, unsupported format, parsing errors).
+    """
+    pass
+
+
+class WellengCalculationError(Exception):
+    """
+    Raised when welleng calculation fails.
+
+    This exception should be raised when survey trajectory calculation fails
+    (e.g., invalid data format, array length mismatch, calculation errors).
+    """
+    pass
+
+
+class InsufficientDataError(Exception):
+    """
+    Raised when required context data is missing for calculation.
+
+    This exception should be raised when necessary location, tie-on, or depth
+    data is not available for performing survey calculations.
+    """
+    pass
+
+
+class InsufficientOverlapError(Exception):
+    """
+    Raised when surveys do not have sufficient MD overlap for comparison.
+
+    This exception should be raised when comparing two surveys that don't
+    have overlapping measured depth ranges.
+    """
+    pass
+
+
+class InvalidSurveyDataError(Exception):
+    """
+    Raised when survey data is invalid for comparison.
+
+    This exception should be raised when survey data doesn't meet requirements
+    for comparison (e.g., not calculated, insufficient points).
+    """
+    pass
+
+
+class DeltaCalculationError(Exception):
+    """
+    Raised when delta calculation fails.
+
+    This exception should be raised when the delta calculation process encounters
+    an error (e.g., calculation failure, invalid data format).
+    """
+    pass
+
+
 def custom_exception_handler(exc, context):
     """
     Custom exception handler for DRF.
@@ -114,6 +184,71 @@ def custom_exception_handler(exc, context):
                 'message': str(exc) or 'You do not have permission to perform this action',
             },
             status=status.HTTP_403_FORBIDDEN
+        )
+
+    # Handle calculation exceptions
+    if isinstance(exc, WellengCalculationError):
+        return Response(
+            {
+                'error': 'WellengCalculationError',
+                'message': str(exc),
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if isinstance(exc, InsufficientDataError):
+        return Response(
+            {
+                'error': 'InsufficientDataError',
+                'message': str(exc),
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if isinstance(exc, FileValidationError):
+        return Response(
+            {
+                'error': 'FileValidationError',
+                'message': str(exc),
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if isinstance(exc, FileParsingError):
+        return Response(
+            {
+                'error': 'FileParsingError',
+                'message': str(exc),
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Handle comparison exceptions
+    if isinstance(exc, InsufficientOverlapError):
+        return Response(
+            {
+                'error': 'InsufficientOverlapError',
+                'message': str(exc),
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if isinstance(exc, InvalidSurveyDataError):
+        return Response(
+            {
+                'error': 'InvalidSurveyDataError',
+                'message': str(exc),
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if isinstance(exc, DeltaCalculationError):
+        return Response(
+            {
+                'error': 'DeltaCalculationError',
+                'message': str(exc),
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
     # For unhandled exceptions, return 500

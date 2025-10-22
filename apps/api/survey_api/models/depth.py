@@ -52,14 +52,14 @@ class Depth(models.Model):
     elevation_reference = models.CharField(
         max_length=100,
         choices=ELEVATION_REFERENCE_CHOICES,
-        default='KB',
+        default='MSL',
         help_text='Elevation reference point (KB, RT, GL, MSL, etc.)'
     )
 
     reference_datum = models.CharField(
         max_length=100,
-        default='WGS84',
-        help_text='Reference datum (e.g., WGS84, NAVD88)'
+        default='RKB/DFE(Drill Floor Elevation)',
+        help_text='Reference datum (e.g., RKB/DFE, WGS84, NAVD88)'
     )
 
     reference_height = models.DecimalField(

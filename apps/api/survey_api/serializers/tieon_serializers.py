@@ -10,15 +10,31 @@ class TieOnSerializer(serializers.ModelSerializer):
     """
     Full serializer for TieOn model with all fields.
     """
+    hole_section_master_name = serializers.CharField(
+        source='hole_section_master.hole_section_name',
+        read_only=True
+    )
+    survey_run_in_name = serializers.CharField(
+        source='survey_run_in.run_in_name',
+        read_only=True
+    )
+    minimum_id_name = serializers.CharField(
+        source='minimum_id.minimum_id_name',
+        read_only=True
+    )
+
     class Meta:
         model = TieOn
         fields = [
             'id', 'run', 'md', 'inc', 'azi', 'tvd', 'latitude', 'departure',
-            'well_type', 'hole_section', 'casing_selected', 'drillpipe_selected',
-            'survey_tool_type', 'survey_interval_from', 'survey_interval_to',
-            'survey_interval_length', 'created_at', 'updated_at'
+            'well_type', 'expected_inclination', 'survey_interval_from', 'survey_interval_to',
+            'survey_interval_length', 'created_at', 'updated_at',
+            'hole_section_master', 'hole_section_master_name',
+            'survey_run_in_type', 'survey_run_in', 'survey_run_in_name',
+            'minimum_id', 'minimum_id_name'
         ]
-        read_only_fields = ['id', 'survey_interval_length', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'survey_interval_length', 'created_at', 'updated_at',
+                           'hole_section_master_name', 'survey_run_in_name', 'minimum_id_name']
 
 
 class CreateTieOnSerializer(serializers.ModelSerializer):
@@ -29,8 +45,8 @@ class CreateTieOnSerializer(serializers.ModelSerializer):
         model = TieOn
         fields = [
             'run', 'md', 'inc', 'azi', 'tvd', 'latitude', 'departure',
-            'well_type', 'hole_section', 'casing_selected', 'drillpipe_selected',
-            'survey_tool_type', 'survey_interval_from', 'survey_interval_to'
+            'well_type', 'expected_inclination', 'survey_interval_from', 'survey_interval_to',
+            'hole_section_master', 'survey_run_in_type', 'survey_run_in', 'minimum_id'
         ]
 
     def validate_inc(self, value):
@@ -78,8 +94,8 @@ class UpdateTieOnSerializer(serializers.ModelSerializer):
         model = TieOn
         fields = [
             'md', 'inc', 'azi', 'tvd', 'latitude', 'departure',
-            'well_type', 'hole_section', 'casing_selected', 'drillpipe_selected',
-            'survey_tool_type', 'survey_interval_from', 'survey_interval_to'
+            'well_type', 'expected_inclination', 'survey_interval_from', 'survey_interval_to',
+            'hole_section_master', 'survey_run_in_type', 'survey_run_in', 'minimum_id'
         ]
 
     def validate_inc(self, value):

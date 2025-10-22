@@ -4,7 +4,8 @@ import { Container, CircularProgress, Box } from '@mui/material';
 import { PageHeader } from '../../components/common/PageHeader';
 import { ErrorAlert } from '../../components/common/ErrorAlert';
 import { SuccessSnackbar } from '../../components/common/SuccessSnackbar';
-import { CompleteRunForm, CompleteRunFormData } from '../../components/forms/CompleteRunForm';
+import { CompleteRunForm } from '../../components/forms/CompleteRunForm';
+import type { CompleteRunFormData } from '../../components/forms/CompleteRunForm';
 import runsService from '../../services/runsService';
 import locationsService from '../../services/locationsService';
 import depthsService from '../../services/depthsService';
@@ -51,15 +52,24 @@ export const CreateCompleteRunPage: React.FC = () => {
     setError(null);
 
     try {
+      console.log('=== CREATING COMPLETE RUN ===');
+      console.log('Form Data:', data);
+
       // Step 1: Create the Run
+      console.log('Step 1: Creating Run...', data.run);
       const createdRun = await runsService.createRun(data.run as any);
       const runId = createdRun.id;
+      console.log('✓ Run created:', runId);
 
       // Step 2: Create Location (linked to run)
-      await locationsService.createLocation({
+      const locationData = {
         ...data.location,
         run: runId,
-      } as any);
+      };
+      console.log('Step 2: Creating Location...');
+      console.log('Full location data:', JSON.stringify(locationData, null, 2));
+      await locationsService.createLocation(locationData as any);
+      console.log('✓ Location created');
 
       // Step 3: Create Depth (linked to run and well)
       await depthsService.createDepth({
@@ -107,13 +117,6 @@ export const CreateCompleteRunPage: React.FC = () => {
         ]}
       />
 
-      {error && (
-        <ErrorAlert
-          error={error}
-          title="Failed to load data"
-        />
-      )}
-
       {isLoadingWells ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
           <CircularProgress />
@@ -124,6 +127,7 @@ export const CreateCompleteRunPage: React.FC = () => {
           onCancel={handleCancel}
           isSubmitting={isSubmitting}
           wells={wells}
+          error={error}
         />
       )}
 

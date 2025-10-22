@@ -11,7 +11,8 @@ from .api_permissions import (
     IsAdminOrReadOnly,
     IsOwnerOrReadOnly,
     IsEngineer,
-    IsViewer
+    IsViewer,
+    IsComparisonOwner
 )
 
 __all__ = [
@@ -26,5 +27,6 @@ __all__ = [
     'IsAdminOrReadOnly',
     'IsOwnerOrReadOnly',
     'IsEngineer',
-    'IsViewer'
+    'IsViewer',
+    'IsComparisonOwner'
 ]

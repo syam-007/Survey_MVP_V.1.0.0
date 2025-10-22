@@ -15,7 +15,10 @@
       "Bash(test:*)",
       "Bash(venv/Scripts/python.exe -c \"import sys; from survey_api.models import Depth; print(''Depth model imported successfully'')\")",
       "Bash(venv/Scripts/python.exe manage.py makemigrations:*)",
-      "Bash(../../venv/Scripts/python.exe manage.py test:*)"
+      "Bash(../../venv/Scripts/python.exe manage.py test:*)",
+      "Bash(python -m pip install:*)",
+      "Bash(python:*)",
+      "Bash(../../venv/Scripts/python.exe manage.py makemigrations:*)"
     ],
     "deny": [],
     "ask": []

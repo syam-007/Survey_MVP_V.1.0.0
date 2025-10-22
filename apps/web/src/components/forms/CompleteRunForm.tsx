@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Stepper,
@@ -7,6 +7,8 @@ import {
   Button,
   Paper,
   Typography,
+  Alert,
+  AlertTitle,
 } from '@mui/material';
 import type {
   CreateRunInput,
@@ -42,6 +44,7 @@ export interface CompleteRunFormProps {
   isSubmitting?: boolean;
   initialData?: Partial<CompleteRunFormData>;
   wells?: Array<{ id: string; well_name: string }>;
+  error?: Error | null;
 }
 
 /**
@@ -69,6 +72,7 @@ export const CompleteRunForm: React.FC<CompleteRunFormProps> = ({
   isSubmitting = false,
   initialData,
   wells = [],
+  error = null,
 }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState<CompleteRunFormData>(() => {
@@ -101,8 +105,9 @@ export const CompleteRunForm: React.FC<CompleteRunFormProps> = ({
 
   /**
    * Update form data for a specific step
+   * Memoized to prevent infinite loops in child components
    */
-  const updateStepData = (
+  const updateStepData = useCallback((
     step: keyof CompleteRunFormData,
     data: Partial<CompleteRunFormData[typeof step]>
   ) => {
@@ -110,7 +115,28 @@ export const CompleteRunForm: React.FC<CompleteRunFormProps> = ({
       ...prev,
       [step]: { ...prev[step], ...data },
     }));
-  };
+  }, []);
+
+  // Memoize individual step callbacks
+  const handleRunChange = useCallback((data: Partial<CreateRunInput>) => {
+    updateStepData('run', data);
+  }, [updateStepData]);
+
+  const handleLocationChange = useCallback((data: Partial<CreateLocationInput>) => {
+    updateStepData('location', data);
+  }, [updateStepData]);
+
+  const handleDepthChange = useCallback((data: Partial<CreateDepthInput>) => {
+    updateStepData('depth', data);
+  }, [updateStepData]);
+
+  const handleSurveyChange = useCallback((data: Partial<CreateSurveyInput>) => {
+    updateStepData('survey', data);
+  }, [updateStepData]);
+
+  const handleTieOnChange = useCallback((data: Partial<CreateTieOnInput>) => {
+    updateStepData('tieon', data);
+  }, [updateStepData]);
 
   /**
    * Handle navigation to next step
@@ -160,7 +186,7 @@ export const CompleteRunForm: React.FC<CompleteRunFormProps> = ({
         return (
           <RunInfoStep
             data={formData.run}
-            onChange={(data) => updateStepData('run', data)}
+            onChange={handleRunChange}
             wells={wells}
           />
         );
@@ -169,7 +195,7 @@ export const CompleteRunForm: React.FC<CompleteRunFormProps> = ({
         return (
           <LocationStep
             data={formData.location}
-            onChange={(data) => updateStepData('location', data)}
+            onChange={handleLocationChange}
             wellId={formData.run.well}
           />
         );
@@ -178,7 +204,7 @@ export const CompleteRunForm: React.FC<CompleteRunFormProps> = ({
         return (
           <DepthStep
             data={formData.depth}
-            onChange={(data) => updateStepData('depth', data)}
+            onChange={handleDepthChange}
             wellId={formData.run.well}
           />
         );
@@ -187,7 +213,7 @@ export const CompleteRunForm: React.FC<CompleteRunFormProps> = ({
         return (
           <SurveyStep
             data={formData.survey}
-            onChange={(data) => updateStepData('survey', data)}
+            onChange={handleSurveyChange}
           />
         );
       case 4:
@@ -195,14 +221,52 @@ export const CompleteRunForm: React.FC<CompleteRunFormProps> = ({
         return (
           <TieOnStep
             data={formData.tieon}
-            onChange={(data) => updateStepData('tieon', data)}
+            onChange={handleTieOnChange}
           />
         );
       case 5:
         // Step 6: Review & Submit
-        return <ReviewStep data={formData} />;
+        return (
+          <Box>
+            {error && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                <AlertTitle>Submission Failed</AlertTitle>
+                {parseErrorMessage(error)}
+              </Alert>
+            )}
+            <ReviewStep data={formData} />
+          </Box>
+        );
       default:
         return null;
+    }
+  };
+
+  /**
+   * Parse error message to extract field-specific errors
+   */
+  const parseErrorMessage = (error: Error): React.ReactNode => {
+    try {
+      // Try to parse if error message contains JSON-like structure
+      const message = error.message;
+
+      // Check if message contains field errors (e.g., "run_number:")
+      if (message.includes(':')) {
+        const parts = message.split(';').map(part => part.trim()).filter(Boolean);
+        if (parts.length > 0) {
+          return (
+            <Box component="ul" sx={{ m: 0, pl: 2 }}>
+              {parts.map((part, index) => (
+                <li key={index}>{part}</li>
+              ))}
+            </Box>
+          );
+        }
+      }
+
+      return message;
+    } catch (e) {
+      return error.message;
     }
   };
 

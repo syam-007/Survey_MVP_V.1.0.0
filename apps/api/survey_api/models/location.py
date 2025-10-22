@@ -47,7 +47,7 @@ class Location(models.Model):
         related_name='location'
     )
 
-    # Input coordinates
+    # Input coordinates (Decimal Degrees)
     latitude = models.DecimalField(
         max_digits=10,
         decimal_places=8,
@@ -55,6 +55,8 @@ class Location(models.Model):
             MinValueValidator(Decimal('-90.0')),
             MaxValueValidator(Decimal('90.0'))
         ],
+        null=True,
+        blank=True,
         help_text='Latitude in decimal degrees (-90 to 90)'
     )
 
@@ -65,7 +67,75 @@ class Location(models.Model):
             MinValueValidator(Decimal('-180.0')),
             MaxValueValidator(Decimal('180.0'))
         ],
+        null=True,
+        blank=True,
         help_text='Longitude in decimal degrees (-180 to 180)'
+    )
+
+    # Latitude in DMS (Degrees, Minutes, Seconds)
+    latitude_degrees = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(-90),
+            MaxValueValidator(90)
+        ],
+        help_text='Latitude degrees component (-90 to 90)'
+    )
+
+    latitude_minutes = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(0),
+            MaxValueValidator(59)
+        ],
+        help_text='Latitude minutes component (0 to 59)'
+    )
+
+    latitude_seconds = models.DecimalField(
+        max_digits=5,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(Decimal('0.0')),
+            MaxValueValidator(Decimal('59.999'))
+        ],
+        help_text='Latitude seconds component (0.0 to 59.999)'
+    )
+
+    # Longitude in DMS (Degrees, Minutes, Seconds)
+    longitude_degrees = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(-180),
+            MaxValueValidator(180)
+        ],
+        help_text='Longitude degrees component (-180 to 180)'
+    )
+
+    longitude_minutes = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(0),
+            MaxValueValidator(59)
+        ],
+        help_text='Longitude minutes component (0 to 59)'
+    )
+
+    longitude_seconds = models.DecimalField(
+        max_digits=5,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(Decimal('0.0')),
+            MaxValueValidator(Decimal('59.999'))
+        ],
+        help_text='Longitude seconds component (0.0 to 59.999)'
     )
 
     # Calculated UTM coordinates
@@ -86,22 +156,28 @@ class Location(models.Model):
     )
 
     # Geodetic system information
+    geodetic_datum = models.CharField(
+        max_length=100,
+        default='PSD 93',
+        help_text='Geodetic datum (e.g., PSD 93, WGS84, NAD83)'
+    )
+
     geodetic_system = models.CharField(
         max_length=100,
-        default='WGS84',
-        help_text='Geodetic datum system (e.g., WGS84, NAD83)'
+        default='Universal Transverse Mercator',
+        help_text='Geodetic system (e.g., Universal Transverse Mercator)'
     )
 
     map_zone = models.CharField(
         max_length=50,
-        default='15N',
+        default='Zone 40N(54E to 60E)',
         help_text='UTM zone or map zone identifier'
     )
 
     north_reference = models.CharField(
         max_length=50,
         choices=NORTH_REFERENCE_CHOICES,
-        default='True North',
+        default='Grid North',
         help_text='Reference north type'
     )
 
@@ -202,3 +278,35 @@ class Location(models.Model):
         elif self.well:
             return f"Location for Well {self.well.well_name}"
         return f"Location {self.id}"
+
+    @property
+    def get_north_coordinate(self):
+        """
+        Calculate north coordinate (latitude) from DMS components.
+        Formula: degrees + (minutes + seconds/60) / 60
+        Returns 8 decimal places precision.
+        """
+        if self.latitude_degrees is None:
+            return None
+
+        minutes = self.latitude_minutes or 0
+        seconds = float(self.latitude_seconds or 0)
+
+        north_coordinate = self.latitude_degrees + (((seconds / 60) + minutes) / 60)
+        return float(f"{north_coordinate:.8f}")
+
+    @property
+    def get_east_coordinate(self):
+        """
+        Calculate east coordinate (longitude) from DMS components.
+        Formula: degrees + (minutes + seconds/60) / 60
+        Returns 8 decimal places precision.
+        """
+        if self.longitude_degrees is None:
+            return None
+
+        minutes = self.longitude_minutes or 0
+        seconds = float(self.longitude_seconds or 0)
+
+        east_coordinate = self.longitude_degrees + (((seconds / 60) + minutes) / 60)
+        return float(f"{east_coordinate:.8f}")

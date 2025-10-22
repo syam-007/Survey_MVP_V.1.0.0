@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -11,8 +11,12 @@ import {
   InputLabel,
   Select,
   FormHelperText,
+  CircularProgress,
+  InputAdornment,
 } from '@mui/material';
+import { CheckCircle as CheckIcon, Error as ErrorIcon } from '@mui/icons-material';
 import type { RunType, CreateRunInput } from '../../../types';
+import runsService from '../../../services/runsService';
 
 /**
  * Validation schema for Run Info step
@@ -57,18 +61,120 @@ export const RunInfoStep: React.FC<RunInfoStepProps> = ({
     control,
     watch,
     formState: { errors },
+    setError,
+    clearErrors,
   } = useForm<Partial<CreateRunInput>>({
     resolver: yupResolver(runInfoSchema) as any,
     defaultValues: data,
     mode: 'onBlur',
   });
 
+  // Validation states
+  const [runNumberValidating, setRunNumberValidating] = useState(false);
+  const [runNameValidating, setRunNameValidating] = useState(false);
+  const [runNumberExists, setRunNumberExists] = useState(false);
+  const [runNameExists, setRunNameExists] = useState(false);
+
   // Watch all form fields and update parent on change
   const formData = watch();
+  const runNumber = watch('run_number');
+  const runName = watch('run_name');
 
   useEffect(() => {
     onChange(formData);
   }, [formData, onChange]);
+
+  // Debounced validation for run_number
+  useEffect(() => {
+    if (!runNumber || runNumber.trim() === '') {
+      setRunNumberExists(false);
+      return;
+    }
+
+    setRunNumberValidating(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const result = await runsService.validateUnique(runNumber.trim());
+        setRunNumberExists(result.run_number_exists);
+
+        if (result.run_number_exists) {
+          setError('run_number', {
+            type: 'manual',
+            message: 'This run number already exists',
+          });
+        } else {
+          clearErrors('run_number');
+        }
+      } catch (error) {
+        console.error('Run number validation failed:', error);
+      } finally {
+        setRunNumberValidating(false);
+      }
+    }, 500); // 500ms debounce
+
+    return () => {
+      clearTimeout(timeoutId);
+      setRunNumberValidating(false);
+    };
+  }, [runNumber, setError, clearErrors]);
+
+  // Debounced validation for run_name
+  useEffect(() => {
+    if (!runName || runName.trim() === '') {
+      setRunNameExists(false);
+      return;
+    }
+
+    setRunNameValidating(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const result = await runsService.validateUnique(undefined, runName.trim());
+        setRunNameExists(result.run_name_exists);
+
+        if (result.run_name_exists) {
+          setError('run_name', {
+            type: 'manual',
+            message: 'This run name already exists',
+          });
+        } else {
+          clearErrors('run_name');
+        }
+      } catch (error) {
+        console.error('Run name validation failed:', error);
+      } finally {
+        setRunNameValidating(false);
+      }
+    }, 500); // 500ms debounce
+
+    return () => {
+      clearTimeout(timeoutId);
+      setRunNameValidating(false);
+    };
+  }, [runName, setError, clearErrors]);
+
+  // Helper to get validation icon
+  const getValidationIcon = (isValidating: boolean, exists: boolean, hasValue: boolean) => {
+    if (!hasValue) return null;
+    if (isValidating) {
+      return (
+        <InputAdornment position="end">
+          <CircularProgress size={20} />
+        </InputAdornment>
+      );
+    }
+    if (exists) {
+      return (
+        <InputAdornment position="end">
+          <ErrorIcon color="error" />
+        </InputAdornment>
+      );
+    }
+    return (
+      <InputAdornment position="end">
+        <CheckIcon color="success" />
+      </InputAdornment>
+    );
+  };
 
   return (
     <Stack spacing={3}>
@@ -87,6 +193,13 @@ export const RunInfoStep: React.FC<RunInfoStepProps> = ({
                 error={!!errors.run_number}
                 helperText={errors.run_number?.message}
                 placeholder="e.g., RUN-001"
+                InputProps={{
+                  endAdornment: getValidationIcon(
+                    runNumberValidating,
+                    runNumberExists,
+                    !!runNumber && runNumber.trim() !== ''
+                  ),
+                }}
               />
             )}
           />
@@ -105,6 +218,13 @@ export const RunInfoStep: React.FC<RunInfoStepProps> = ({
                 error={!!errors.run_name}
                 helperText={errors.run_name?.message}
                 placeholder="e.g., Production Survey Run"
+                InputProps={{
+                  endAdornment: getValidationIcon(
+                    runNameValidating,
+                    runNameExists,
+                    !!runName && runName.trim() !== ''
+                  ),
+                }}
               />
             )}
           />
