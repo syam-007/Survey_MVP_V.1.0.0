@@ -22,6 +22,8 @@ import {
   TableHead,
   TableRow,
   Alert,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   Download as DownloadIcon,
@@ -45,9 +47,14 @@ export const ComparisonResults: React.FC<ComparisonResultsProps> = ({
   onNewComparison,
 }) => {
   const [exportFormat, setExportFormat] = useState<'excel' | 'csv'>('excel');
+  const [activeTab, setActiveTab] = useState(0);
   const { exportComparison, isExporting, error: exportError } = useExportComparison();
 
   const stats = comparison.statistics;
+
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue);
+  };
 
   const handleExport = async () => {
     try {
@@ -64,6 +71,23 @@ export const ComparisonResults: React.FC<ComparisonResultsProps> = ({
     return value.toFixed(decimals);
   };
 
+  // Color coding for delta values based on magnitude
+  const getDeltaColor = (value: number, type: 'position' | 'angular') => {
+    const absValue = Math.abs(value);
+
+    if (type === 'position') {
+      // Position deltas (meters)
+      if (absValue < 0.1) return '#c8e6c9'; // Light green
+      if (absValue < 0.3) return '#fff59d'; // Light yellow
+      return '#ffcdd2'; // Light red
+    } else {
+      // Angular deltas (degrees)
+      if (absValue < 0.5) return '#c8e6c9'; // Light green
+      if (absValue < 1.5) return '#fff59d'; // Light yellow
+      return '#ffcdd2'; // Light red
+    }
+  };
+
   return (
     <Card>
       <CardContent>
@@ -78,21 +102,21 @@ export const ComparisonResults: React.FC<ComparisonResultsProps> = ({
             </Box>
           </Box>
           <Box display="flex" gap={1}>
-            <Button
+            {/* <Button
               variant="outlined"
               startIcon={<RefreshIcon />}
               onClick={onNewComparison}
             >
               New Comparison
-            </Button>
-            <Button
+            </Button> */}
+            {/* <Button
               variant="contained"
               startIcon={<DownloadIcon />}
               onClick={handleExport}
               disabled={isExporting}
             >
               {isExporting ? 'Exporting...' : `Export ${exportFormat.toUpperCase()}`}
-            </Button>
+            </Button> */}
           </Box>
         </Box>
 
@@ -146,6 +170,115 @@ export const ComparisonResults: React.FC<ComparisonResultsProps> = ({
             </Paper>
           </Grid>
         </Grid>
+
+        {/* Comparison Result Data Table */}
+        <Typography variant="h6" gutterBottom>
+          Comparison Result Data Table
+        </Typography>
+        <Divider sx={{ mb: 2 }} />
+
+        <TableContainer component={Paper} elevation={0} sx={{ mb: 3, maxHeight: 600 }}>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ bgcolor: 'grey.100' }}><strong>MD (m)</strong></TableCell>
+                <TableCell align="right" sx={{ bgcolor: 'secondary.50' }}><strong>Ref Inc (°)</strong></TableCell>
+                <TableCell align="right" sx={{ bgcolor: 'secondary.50' }}><strong>Ref Azi (°)</strong></TableCell>
+                <TableCell align="right" sx={{ bgcolor: 'primary.50' }}><strong>Pri Inc (°)</strong></TableCell>
+                <TableCell align="right" sx={{ bgcolor: 'primary.50' }}><strong>Pri Azi (°)</strong></TableCell>
+                <TableCell align="right" sx={{ bgcolor: 'grey.100' }}><strong>ΔX (m)</strong></TableCell>
+                <TableCell align="right" sx={{ bgcolor: 'grey.100' }}><strong>ΔY (m)</strong></TableCell>
+                <TableCell align="right" sx={{ bgcolor: 'grey.100' }}><strong>ΔZ (m)</strong></TableCell>
+                <TableCell align="right" sx={{ bgcolor: 'grey.100' }}><strong>ΔMD(m)</strong></TableCell>
+                {/* <TableCell align="right" sx={{ bgcolor: 'grey.100' }}><strong>ΔTotal (m)</strong></TableCell> */}
+                <TableCell align="right" sx={{ bgcolor: 'grey.100' }}><strong>ΔInc (°)</strong></TableCell>
+                <TableCell align="right" sx={{ bgcolor: 'grey.100' }}><strong>ΔAzi (°)</strong></TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {comparison.md_data.map((md, index) => (
+                <TableRow key={index} hover>
+                  <TableCell>{formatNumber(md, 2)}</TableCell>
+                  <TableCell align="right" sx={{ bgcolor: 'rgba(156, 39, 176, 0.03)' }}>
+                    {comparison.reference_inc ? formatNumber(comparison.reference_inc[index], 2) : '-'}
+                  </TableCell>
+                  <TableCell align="right" sx={{ bgcolor: 'rgba(156, 39, 176, 0.03)' }}>
+                    {comparison.reference_azi ? formatNumber(comparison.reference_azi[index], 2) : '-'}
+                  </TableCell>
+                  <TableCell align="right" sx={{ bgcolor: 'rgba(25, 118, 210, 0.03)' }}>
+                    {comparison.comparison_inc ? formatNumber(comparison.comparison_inc[index], 2) : '-'}
+                  </TableCell>
+                  <TableCell align="right" sx={{ bgcolor: 'rgba(25, 118, 210, 0.03)' }}>
+                    {comparison.comparison_azi ? formatNumber(comparison.comparison_azi[index], 2) : '-'}
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{ bgcolor: getDeltaColor(comparison.delta_x[index], 'position') }}
+                  >
+                    {formatNumber(comparison.delta_x[index], 3)}
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{ bgcolor: getDeltaColor(comparison.delta_y[index], 'position') }}
+                  >
+                    {formatNumber(comparison.delta_y[index], 3)}
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{ bgcolor: getDeltaColor(comparison.delta_z[index], 'position') }}
+                  >
+                    {formatNumber(comparison.delta_z[index], 3)}
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{ bgcolor: getDeltaColor(comparison.delta_horizontal[index], 'position') }}
+                  >
+                    {formatNumber(comparison.delta_horizontal[index], 3)}
+                  </TableCell>
+                  {/* <TableCell
+                    align="right"
+                    sx={{ bgcolor: getDeltaColor(comparison.delta_total[index], 'position') }}
+                  >
+                    {formatNumber(comparison.delta_total[index], 3)}
+                  </TableCell> */}
+                  <TableCell
+                    align="right"
+                    sx={{ bgcolor: getDeltaColor(comparison.delta_inc[index], 'angular') }}
+                  >
+                    {formatNumber(comparison.delta_inc[index], 2)}
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{ bgcolor: getDeltaColor(comparison.delta_azi[index], 'angular') }}
+                  >
+                    {formatNumber(comparison.delta_azi[index], 2)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {/* Color Legend */}
+        <Box sx={{ mb: 3, display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Typography variant="caption" color="text.secondary" fontWeight="medium">
+            Color Legend:
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Box sx={{ width: 16, height: 16, bgcolor: '#c8e6c9', border: '1px solid #ddd' }} />
+              <Typography variant="caption">Good (Pos: &lt;0.1m, Ang: &lt;0.5°)</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Box sx={{ width: 16, height: 16, bgcolor: '#fff59d', border: '1px solid #ddd' }} />
+              <Typography variant="caption">Medium (Pos: 0.1-0.3m, Ang: 0.5-1.5°)</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Box sx={{ width: 16, height: 16, bgcolor: '#ffcdd2', border: '1px solid #ddd' }} />
+              <Typography variant="caption">High (Pos: &gt;0.3m, Ang: &gt;1.5°)</Typography>
+            </Box>
+          </Box>
+        </Box>
 
         {/* Statistics Summary */}
         <Typography variant="h6" gutterBottom>
@@ -203,20 +336,18 @@ export const ComparisonResults: React.FC<ComparisonResultsProps> = ({
         <Typography variant="h6" gutterBottom>
           Position Deltas
         </Typography>
-        <Divider sx={{ mb: 2 }} />
+        <Divider sx={{ mb: 3 }} />
 
         <TableContainer component={Paper} elevation={0} sx={{ mb: 3 }}>
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: 'grey.100' }}>
-                <TableRow>
-                  <TableCell><strong>Metric</strong></TableCell>
-                  <TableCell align="right"><strong>ΔX (m)</strong></TableCell>
-                  <TableCell align="right"><strong>ΔY (m)</strong></TableCell>
-                  <TableCell align="right"><strong>ΔZ (m)</strong></TableCell>
-                  <TableCell align="right"><strong>Horizontal (m)</strong></TableCell>
-                  <TableCell align="right"><strong>Total (m)</strong></TableCell>
-                </TableRow>
+                <TableCell><strong>Metric</strong></TableCell>
+                <TableCell align="right"><strong>ΔX (m)</strong></TableCell>
+                <TableCell align="right"><strong>ΔY (m)</strong></TableCell>
+                <TableCell align="right"><strong>ΔZ (m)</strong></TableCell>
+                <TableCell align="right"><strong>Horizontal (m)</strong></TableCell>
+                <TableCell align="right"><strong>Total (m)</strong></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -354,48 +485,46 @@ export const ComparisonResults: React.FC<ComparisonResultsProps> = ({
           </Table>
         </TableContainer>
 
-        {/* 2D Visualizations */}
+        {/* Visualizations Section */}
         <Typography variant="h6" gutterBottom>
-          Position Deltas vs Measured Depth
+          Comparison Visualizations
         </Typography>
-        <Divider sx={{ mb: 2 }} />
+        <Divider sx={{ mb: 3 }} />
 
-        <Box sx={{ mb: 3 }}>
-          <DeltaVsMDPlot
-            mdData={comparison.md_data}
-            deltaX={comparison.delta_x}
-            deltaY={comparison.delta_y}
-            deltaZ={comparison.delta_z}
-            deltaHorizontal={comparison.delta_horizontal}
-            deltaTotal={comparison.delta_total}
-          />
-        </Box>
+        <Paper sx={{ mb: 3 }}>
+          <Tabs
+            value={activeTab}
+            onChange={handleTabChange}
+            sx={{ borderBottom: 1, borderColor: 'divider' }}
+          >
+            <Tab label="3D Survey Comparison" />
+            <Tab label="Position Deltas vs MD" />
+            <Tab label="Angular Deltas vs MD" />
+          </Tabs>
 
-        {/* Angular Deltas */}
-        <Typography variant="h6" gutterBottom>
-          Angular Deltas vs Measured Depth
-        </Typography>
-        <Divider sx={{ mb: 2 }} />
+          <Box sx={{ p: 3 }}>
+            {/* Tab 0: 3D Survey Comparison */}
+            {activeTab === 0 && (
+              <Box sx={{ minHeight: 700 }}>
+                <ComparisonPlot3D comparison={comparison} />
+              </Box>
+            )}
 
-        <Box sx={{ mb: 3 }}>
-          <AngularComparisonPlot
-            mdData={comparison.md_data}
-            deltaInc={comparison.delta_inc}
-            deltaAzi={comparison.delta_azi}
-          />
-        </Box>
+            {/* Tab 1: Position Deltas vs Measured Depth */}
+            {activeTab === 1 && (
+              <Box sx={{ minHeight: 600 }}>
+                <DeltaVsMDPlot comparison={comparison} />
+              </Box>
+            )}
 
-        {/* 3D Visualization */}
-        <Typography variant="h6" gutterBottom>
-          3D Survey Comparison
-        </Typography>
-        <Divider sx={{ mb: 2 }} />
-
-        <Box sx={{ mb: 3 }}>
-          <ComparisonPlot3D
-            comparisonData={comparison}
-          />
-        </Box>
+            {/* Tab 2: Angular Deltas vs Measured Depth */}
+            {activeTab === 2 && (
+              <Box sx={{ minHeight: 600 }}>
+                <AngularComparisonPlot comparison={comparison} />
+              </Box>
+            )}
+          </Box>
+        </Paper>
 
         {exportError && (
           <Alert severity="error" sx={{ mt: 2 }}>

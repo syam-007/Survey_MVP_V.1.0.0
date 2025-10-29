@@ -5,7 +5,7 @@ This service wraps the welleng library to calculate survey trajectories,
 converting uploaded survey data into position coordinates and trajectory metrics.
 """
 import numpy as np
-from typing import Dict, List
+from typing import Dict, List, Optional
 import logging
 
 from survey_api.exceptions import WellengCalculationError
@@ -79,15 +79,12 @@ class WellengService:
                 )
 
             # Convert to numpy arrays
+            # Note: tie-on point is already prepended in the data by upload_viewset
             md_array = np.array(md, dtype=float)
             inc_array = np.array(inc, dtype=float)
             azi_array = np.array(azi, dtype=float)
 
-            # Apply tie-on offset to MD
-            tie_on_md = float(tie_on_data.get('md', 0))
-            md_array = md_array + tie_on_md
-
-            logger.debug(f"MD range after tie-on: {md_array.min():.2f} to {md_array.max():.2f}")
+            logger.debug(f"MD range: {md_array.min():.2f} to {md_array.max():.2f}, points: {len(md_array)}")
 
             # Extract location data with defaults
             latitude = location_data.get('latitude')
@@ -169,8 +166,9 @@ class WellengService:
 
             # Replace NaN values with None for JSON compatibility
             # PostgreSQL JSONB doesn't support NaN, so convert to None (null in JSON)
-            northing = [None if np.isnan(x) else float(x) for x in northing_array]
-            easting = [None if np.isnan(x) else float(x) for x in easting_array]
+            # Round northing and easting to 2 decimal places for consistency
+            northing = [None if np.isnan(x) else round(float(x), 2) for x in northing_array]
+            easting = [None if np.isnan(x) else round(float(x), 2) for x in easting_array]
             tvd = [None if np.isnan(x) else float(x) for x in tvd_array]
             dls = [None if np.isnan(x) else float(x) for x in dls_array]
             build_rate = [None if np.isnan(x) else float(x) for x in build_rate_array]
@@ -227,10 +225,12 @@ class WellengService:
     @staticmethod
     def interpolate_survey(
         calculated_data: Dict,
-        resolution: int = 5
+        resolution: int = 5,
+        start_md: Optional[float] = None,
+        end_md: Optional[float] = None
     ) -> Dict:
         """
-        Interpolate calculated survey to specified resolution.
+        Interpolate calculated survey to specified resolution using welleng's interpolate_survey.
 
         Args:
             calculated_data: Dictionary with arrays:
@@ -241,6 +241,8 @@ class WellengService:
                 - northing: List[float] - Northing coordinates
                 - tvd: List[float] - True Vertical Depth
             resolution: Interpolation step size in meters (default: 5)
+            start_md: Optional start MD for custom range (default: tie-on MD)
+            end_md: Optional end MD for custom range (default: final MD)
 
         Returns:
             Dictionary containing:
@@ -251,6 +253,9 @@ class WellengService:
                 - northing: List[float] - Interpolated Northing
                 - tvd: List[float] - Interpolated TVD
                 - dls: List[float] - Interpolated DLS (recalculated)
+                - vertical_section: List[float] - Interpolated Vertical Section
+                - closure_distance: List[float] - Interpolated Closure Distance
+                - closure_direction: List[float] - Interpolated Closure Direction
                 - point_count: int - Number of interpolated points
                 - status: str - 'success'
 
@@ -258,11 +263,11 @@ class WellengService:
             WellengCalculationError: If interpolation fails
 
         Performance:
-            Uses NumPy's interp for fast linear interpolation.
+            Uses welleng's interpolate_survey function.
             Target: < 2 seconds for typical datasets.
         """
         try:
-            from welleng.survey import Survey, SurveyHeader
+            from welleng.survey import Survey, SurveyHeader, interpolate_survey
 
             logger.info(f"Starting welleng interpolation with resolution={resolution}m")
 
@@ -286,29 +291,68 @@ class WellengService:
                     "Insufficient data points for interpolation. At least 2 points required."
                 )
 
-            # Create interpolation points
-            md_min = float(md[0])
-            md_max = float(md[-1])
-            md_interpolated = np.arange(md_min, md_max, resolution)
+            logger.debug(f"Original survey: {len(md)} points, MD range: {md[0]:.2f} to {md[-1]:.2f}")
 
-            # Ensure we have at least 2 points for valid interpolation
-            if len(md_interpolated) < 2:
+            # Get tie-on MD (first point) and final MD from survey data
+            tie_on_md = float(md[0])
+            survey_final_md = float(md[-1])
+
+            # Use custom start/end MD if provided, otherwise use defaults
+            interpolation_start_md = start_md if start_md is not None else tie_on_md
+            interpolation_end_md = end_md if end_md is not None else survey_final_md
+
+            # Validate custom range
+            if interpolation_start_md < tie_on_md:
                 raise WellengCalculationError(
-                    f"Resolution {resolution}m too large for MD range {md_min:.2f} to {md_max:.2f}m. "
-                    f"Would produce {len(md_interpolated)} points, but at least 2 points required."
+                    f"Start MD ({interpolation_start_md:.2f}m) cannot be less than tie-on MD ({tie_on_md:.2f}m)"
+                )
+            if interpolation_end_md > survey_final_md:
+                raise WellengCalculationError(
+                    f"End MD ({interpolation_end_md:.2f}m) cannot exceed survey final MD ({survey_final_md:.2f}m)"
+                )
+            if interpolation_start_md >= interpolation_end_md:
+                raise WellengCalculationError(
+                    f"Start MD ({interpolation_start_md:.2f}m) must be less than end MD ({interpolation_end_md:.2f}m)"
                 )
 
-            logger.debug(f"Interpolating {len(md)} points to {len(md_interpolated)} points")
+            print(f"[INTERPOLATION] Tie-on MD: {tie_on_md:.2f}m, Final MD: {survey_final_md:.2f}m")
+            print(f"[INTERPOLATION] Custom Range: Start={interpolation_start_md:.2f}m, End={interpolation_end_md:.2f}m, Resolution: {resolution}m")
 
-            # Interpolate all fields using numpy.interp (fast linear interpolation)
-            inc_interpolated = np.interp(md_interpolated, md, inc)
-            azi_interpolated = np.interp(md_interpolated, md, azi)
-            easting_interpolated = np.interp(md_interpolated, md, easting)
-            northing_interpolated = np.interp(md_interpolated, md, northing)
-            tvd_interpolated = np.interp(md_interpolated, md, tvd)
+            # Create interpolated MD array
+            # ALWAYS start with the tie-on point, then continue with interpolated points from start_md
+            interpolated_md_list = [tie_on_md]
 
-            # Recreate Survey object with interpolated data to calculate DLS, vertical section, closure
-            # Use minimal header since we're only calculating trajectory metrics
+            # Generate interpolated points from start_md to end_md with given resolution
+            current_md = interpolation_start_md
+            while current_md <= interpolation_end_md:
+                # Only add if not duplicate of tie-on point
+                if abs(current_md - tie_on_md) > 0.01:
+                    interpolated_md_list.append(current_md)
+                current_md += resolution
+
+            # Always include the end MD if it's not already included
+            if abs(interpolated_md_list[-1] - interpolation_end_md) > 0.01:
+                interpolated_md_list.append(interpolation_end_md)
+
+            interpolated_md = np.array(interpolated_md_list)
+
+            print(f"[INTERPOLATION] Generated {len(interpolated_md)} points from {interpolated_md[0]:.2f}m to {interpolated_md[-1]:.2f}m")
+            print(f"[INTERPOLATION] First 3 MD values: {interpolated_md[:min(3, len(interpolated_md))]}")
+
+            # Interpolate Inc and Azi directly from original calculated data to our exact MD points
+            from scipy.interpolate import interp1d
+
+            # Create interpolation functions from ORIGINAL calculated data
+            inc_interp_func = interp1d(md, inc, kind='linear', fill_value='extrapolate')
+            azi_interp_func = interp1d(md, azi, kind='linear', fill_value='extrapolate')
+
+            # Interpolate inc and azi at our exact MD values
+            inc_interpolated = inc_interp_func(interpolated_md)
+            azi_interpolated = azi_interp_func(interpolated_md)
+
+            print(f"[INTERPOLATION] Interpolated first point: MD={interpolated_md[0]:.2f}, INC={inc_interpolated[0]:.2f}, AZI={azi_interpolated[0]:.2f}")
+
+            # Create header for welleng Survey
             header = SurveyHeader(
                 name="interpolated_survey",
                 latitude=0.0,
@@ -316,63 +360,69 @@ class WellengService:
                 deg=True
             )
 
-            # Create Survey with interpolated positions to maintain spatial accuracy
-            interp_survey = Survey(
-                md=md_interpolated,
+            # Create Survey object with interpolated MD, Inc, Azi values
+            # This will calculate positions (n, e, tvd) automatically
+            interpolated_survey = Survey(
+                md=interpolated_md,
                 inc=inc_interpolated,
                 azi=azi_interpolated,
                 header=header,
                 start_nev=[
-                    northing_interpolated[0],  # Start from interpolated first point
-                    easting_interpolated[0],
-                    tvd_interpolated[0]
+                    northing[0],  # Start from tie-on position
+                    easting[0],
+                    tvd[0]
                 ],
                 deg=True
             )
 
-            dls_interpolated = interp_survey.dls
+            print(f"[INTERPOLATION] Survey object created with {len(interpolated_survey.md)} points")
+            print(f"[INTERPOLATION] First calculated point: N={interpolated_survey.n[0]:.2f}, E={interpolated_survey.e[0]:.2f}, TVD={interpolated_survey.tvd[0]:.2f}")
 
-            # Calculate Vertical Section
-            # Use the azimuth from the first interpolated point for vertical section
-            vertical_section_azimuth = float(azi_interpolated[0])
-            logger.debug(f"Setting vertical section azimuth to {vertical_section_azimuth} degrees for interpolation")
-            interp_survey.set_vertical_section(vertical_section_azimuth, deg=True)
-            vertical_section_interpolated = interp_survey.vertical_section
+            # Calculate Vertical Section using interpolated survey
+            # Use the azimuth from the first interpolated point (grid azimuth)
+            vertical_section_azimuth = float(interpolated_survey.azi_grid_deg[0])
+            logger.debug(f"Setting vertical section azimuth to {vertical_section_azimuth} degrees")
+            interpolated_survey.set_vertical_section(vertical_section_azimuth, deg=True)
 
             # Calculate Closure Distance and Direction
-            # Closure is calculated relative to the first point
             closure_distance_list = []
             closure_direction_list = []
 
-            for i in range(len(northing_interpolated)):
-                # Calculate delta from first point
-                delta_n = northing_interpolated[i] - northing_interpolated[0]
-                delta_e = easting_interpolated[i] - easting_interpolated[0]
+            first_northing = interpolated_survey.n[0]
+            first_easting = interpolated_survey.e[0]
 
-                # Closure distance using Pythagorean theorem
+            for i in range(len(interpolated_survey.n)):
+                # Calculate delta from first point
+                delta_n = interpolated_survey.n[i] - first_northing
+                delta_e = interpolated_survey.e[i] - first_easting
+
+                # Closure distance
                 distance = np.sqrt(delta_n ** 2 + delta_e ** 2)
 
-                # Closure direction using atan2 (returns angle in radians, convert to degrees)
-                # atan2(delta_e, delta_n) gives angle from North (0°) clockwise
-                direction = np.degrees(np.arctan2(delta_e, delta_n)) % 360
+                # Closure direction
+                if distance > 0:
+                    direction = np.degrees(np.arctan2(delta_e, delta_n)) % 360
+                else:
+                    direction = 0.0
 
                 closure_distance_list.append(float(distance))
                 closure_direction_list.append(float(direction))
 
             logger.debug(f"Final interpolated closure: Distance={closure_distance_list[-1]:.2f}m, Direction={closure_direction_list[-1]:.2f}°")
 
-            # Replace NaN values with None for JSON compatibility
-            # PostgreSQL JSONB doesn't support NaN, so convert to None (null in JSON)
-            md_list = [None if np.isnan(x) else float(x) for x in md_interpolated]
-            inc_list = [None if np.isnan(x) else float(x) for x in inc_interpolated]
-            azi_list = [None if np.isnan(x) else float(x) for x in azi_interpolated]
-            easting_list = [None if np.isnan(x) else float(x) for x in easting_interpolated]
-            northing_list = [None if np.isnan(x) else float(x) for x in northing_interpolated]
-            tvd_list = [None if np.isnan(x) else float(x) for x in tvd_interpolated]
-            dls_list = [None if np.isnan(x) else float(x) for x in dls_interpolated]
-            vertical_section_list = [None if np.isnan(x) else float(x) for x in vertical_section_interpolated]
+            # Convert to lists and handle NaN
+            # Round northing and easting to 2 decimal places for consistency
+            md_list = [None if np.isnan(x) else float(x) for x in interpolated_survey.md]
+            inc_list = [None if np.isnan(x) else float(x) for x in interpolated_survey.inc_deg]
+            azi_list = [None if np.isnan(x) else float(x) for x in interpolated_survey.azi_grid_deg]
+            easting_list = [None if np.isnan(x) else round(float(x), 2) for x in interpolated_survey.e]
+            northing_list = [None if np.isnan(x) else round(float(x), 2) for x in interpolated_survey.n]
+            tvd_list = [None if np.isnan(x) else float(x) for x in interpolated_survey.tvd]
+            dls_list = [None if np.isnan(x) else float(x) for x in interpolated_survey.dls]
+            vertical_section_list = [None if np.isnan(x) else float(x) for x in interpolated_survey.vertical_section]
 
-            logger.info(f"Interpolation completed: {len(md_interpolated)} points with vertical section and closure")
+            print(f"[INTERPOLATION] Completed: {len(md_list)} points, returning first MD={md_list[0]}")
+            logger.info(f"Interpolation completed: {len(md_list)} points with vertical section and closure")
 
             return {
                 'md': md_list,
@@ -385,7 +435,7 @@ class WellengService:
                 'vertical_section': vertical_section_list,
                 'closure_distance': closure_distance_list,
                 'closure_direction': closure_direction_list,
-                'point_count': len(md_interpolated),
+                'point_count': len(md_list),
                 'status': 'success'
             }
 

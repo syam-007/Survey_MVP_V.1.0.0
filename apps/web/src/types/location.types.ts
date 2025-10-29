@@ -21,6 +21,9 @@ export interface CreateLocationInput {
   longitude_degrees?: number;
   longitude_minutes?: number;
   longitude_seconds?: number;
+  // UTM coordinates (required)
+  easting: number;
+  northing: number;
   geodetic_datum?: string; // Optional, defaults to "PSD 93" (read-only)
   geodetic_system?: GeodeticSystem; // Optional, defaults to "Universal Transverse Mercator" (read-only)
   map_zone?: string; // Optional, defaults to "Zone 40N(54E to 60E)" (read-only)
@@ -33,13 +36,18 @@ export interface CreateLocationInput {
  */
 export interface Location extends CreateLocationInput {
   id: string; // UUID
+  well?: string; // UUID - optional well reference
   north_coordinate?: number; // Calculated from DMS
   east_coordinate?: number; // Calculated from DMS
   easting: number; // Calculated
   northing: number; // Calculated
   grid_correction: number; // Calculated
-  g_t: number; // Calculated
-  w_t: number; // Calculated
+  w_t: number; // Scale factor (calculated)
+  min_w_t: number; // Minimum scale factor (calculated)
+  max_w_t: number; // Maximum scale factor (calculated)
+  g_t: number; // Grid convergence (calculated)
+  min_g_t: number; // Minimum grid convergence (calculated)
+  max_g_t: number; // Maximum grid convergence (calculated)
   created_at: string; // ISO datetime
   updated_at: string; // ISO datetime
 }
@@ -56,6 +64,8 @@ export interface UpdateLocationInput {
   longitude_degrees?: number;
   longitude_minutes?: number;
   longitude_seconds?: number;
+  easting?: number;
+  northing?: number;
   geodetic_datum?: string;
   geodetic_system?: GeodeticSystem;
   map_zone?: string;

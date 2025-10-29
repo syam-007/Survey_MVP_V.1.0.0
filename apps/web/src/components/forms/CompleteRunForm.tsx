@@ -20,7 +20,6 @@ import type {
 import { RunInfoStep } from './steps/RunInfoStep';
 import { LocationStep } from './steps/LocationStep';
 import { DepthStep } from './steps/DepthStep';
-import { SurveyStep } from './steps/SurveyStep';
 import { TieOnStep } from './steps/TieOnStep';
 import { ReviewStep } from './steps/ReviewStep';
 
@@ -54,7 +53,6 @@ const STEPS = [
   'Run Info',
   'Location',
   'Depth',
-  'Survey Type',
   'Tie-On',
   'Review & Submit',
 ];
@@ -209,23 +207,15 @@ export const CompleteRunForm: React.FC<CompleteRunFormProps> = ({
           />
         );
       case 3:
-        // Step 4: Survey Type Form
-        return (
-          <SurveyStep
-            data={formData.survey}
-            onChange={handleSurveyChange}
-          />
-        );
-      case 4:
-        // Step 5: Tie-On Form
+        // Step 4: Tie-On Form
         return (
           <TieOnStep
             data={formData.tieon}
             onChange={handleTieOnChange}
           />
         );
-      case 5:
-        // Step 6: Review & Submit
+      case 4:
+        // Step 5: Review & Submit
         return (
           <Box>
             {error && (

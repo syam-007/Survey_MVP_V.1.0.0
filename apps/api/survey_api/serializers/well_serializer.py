@@ -30,7 +30,7 @@ class WellSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Well
-        fields = ('id', 'well_name', 'well_type', 'created_at', 'updated_at',
+        fields = ('id', 'well_id', 'well_name', 'created_at', 'updated_at',
                   'runs', 'runs_count')
         read_only_fields = ('id', 'created_at', 'updated_at', 'runs', 'runs_count')
 
@@ -40,6 +40,17 @@ class WellSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'runs_count'):
             return obj.runs_count
         return obj.runs.count()
+
+    def validate_well_id(self, value):
+        """Validate well_id is not empty"""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Well ID cannot be empty")
+
+        # Check length
+        if len(value.strip()) > 100:
+            raise serializers.ValidationError("Well ID must be 100 characters or less")
+
+        return value.strip()
 
     def validate_well_name(self, value):
         """Validate well_name is not empty"""
@@ -51,15 +62,6 @@ class WellSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Well name must be 255 characters or less")
 
         return value.strip()
-
-    def validate_well_type(self, value):
-        """Validate well_type is valid"""
-        valid_types = ['Oil', 'Gas', 'Water', 'Other']
-        if value not in valid_types:
-            raise serializers.ValidationError(
-                f"Invalid well type. Must be one of: {', '.join(valid_types)}"
-            )
-        return value
 
 
 class WellListSerializer(serializers.ModelSerializer):
@@ -73,7 +75,7 @@ class WellListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Well
-        fields = ('id', 'well_name', 'well_type', 'created_at', 'updated_at', 'runs_count')
+        fields = ('id', 'well_id', 'well_name', 'created_at', 'updated_at', 'runs_count')
         read_only_fields = ('id', 'created_at', 'updated_at', 'runs_count')
 
     def get_runs_count(self, obj):

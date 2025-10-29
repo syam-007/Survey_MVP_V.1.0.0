@@ -38,18 +38,17 @@ class WellViewSet(viewsets.ModelViewSet):
 
     Features:
     - Pagination (20 items per page)
-    - Filtering by well_type
-    - Search by well_name
-    - Ordering by created_at, updated_at, well_name
+    - Search by well_name, well_id
+    - Ordering by created_at, updated_at, well_name, well_id
     - Hard delete (not soft delete like Run)
     """
 
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    search_fields = ['well_name']
-    filterset_fields = ['well_type']
-    ordering_fields = ['created_at', 'updated_at', 'well_name']
+    search_fields = ['well_name', 'well_id']
+    filterset_fields = []
+    ordering_fields = ['created_at', 'updated_at', 'well_name', 'well_id']
     ordering = ['-created_at']
 
     def get_queryset(self):
@@ -61,10 +60,6 @@ class WellViewSet(viewsets.ModelViewSet):
         filters = {}
 
         # Extract filter parameters from request
-        well_type = self.request.query_params.get('well_type', None)
-        if well_type:
-            filters['well_type'] = well_type
-
         search = self.request.query_params.get('search', None)
         if search:
             filters['search'] = search
@@ -152,7 +147,7 @@ class WellViewSet(viewsets.ModelViewSet):
         Create a new well.
 
         Uses WellService.create_well for business logic.
-        Validates well_name uniqueness and well_type.
+        Validates well_id and well_name uniqueness.
         """
         from rest_framework.exceptions import ValidationError as DRFValidationError
 
@@ -285,6 +280,73 @@ class WellViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, IsAdminOrEngineer])
+    def create_with_location(self, request):
+        """
+        Create a new well with location in a single atomic transaction.
+
+        Custom endpoint: POST /api/v1/wells/create_with_location/
+
+        Request body should include:
+        - well_id: Unique well identifier
+        - well_name: Well name
+        - location: Location data (nested object with lat/lon, easting/northing, etc.)
+
+        Returns the created well with location.
+        """
+        from rest_framework.exceptions import ValidationError as DRFValidationError
+        from django.db import transaction
+        from survey_api.serializers.location_serializers import CreateLocationSerializer
+
+        try:
+            with transaction.atomic():
+                # Extract well and location data
+                well_data = {
+                    'well_id': request.data.get('well_id'),
+                    'well_name': request.data.get('well_name'),
+                }
+                location_data = request.data.get('location', {})
+
+                # Validate well data
+                well_serializer = self.get_serializer(data=well_data)
+                well_serializer.is_valid(raise_exception=True)
+
+                # Create well
+                well = WellService.create_well(well_serializer.validated_data)
+
+                # Add well ID to location data
+                location_data['well'] = well.id
+
+                # Validate and create location
+                location_serializer = CreateLocationSerializer(data=location_data)
+                location_serializer.is_valid(raise_exception=True)
+                location_serializer.save()
+
+                # Return the created well with location
+                response_serializer = self.get_serializer(well)
+                return Response(
+                    response_serializer.data,
+                    status=status.HTTP_201_CREATED
+                )
+        except ValidationError as e:
+            # Django ValidationError
+            error_detail = e.message_dict if hasattr(e, 'message_dict') else {'error': str(e)}
+            return Response(
+                {'error': 'Validation failed', 'details': error_detail},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except DRFValidationError as e:
+            # DRF ValidationError from serializer
+            return Response(
+                {'error': 'Validation failed', 'details': e.detail},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {'error': 'Failed to create well with location', 'details': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsViewerOrAbove])
     def statistics(self, request):
         """
@@ -294,7 +356,6 @@ class WellViewSet(viewsets.ModelViewSet):
 
         Returns:
         - total_wells: Total number of wells
-        - wells_by_type: Count of wells by type (Oil, Gas, Water, Other)
         - wells_with_runs: Number of wells that have at least one run
         - wells_without_runs: Number of wells with no runs
         """

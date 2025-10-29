@@ -69,8 +69,6 @@ class ExcelExportServiceTest(TestCase):
             latitude=0.0,
             departure=0.0,
             well_type='Oil',
-            hole_section='Production Casing',
-            survey_tool_type='MWD',
             survey_interval_from=0.0,
             survey_interval_to=1000.0
         )

@@ -27,6 +27,9 @@ export interface CreateTieOnInput {
   minimum_id?: number | null; // FK to MinimumIdMaster
   // Auto-calculation fields
   expected_inclination?: number | null; // Used to auto-set well_type
+  // BHC and Proposal Direction
+  is_bhc?: boolean; // Bottom Hole Convergence flag
+  proposal_direction?: number | null; // 0-360 degrees, auto-set to 0 when BHC is enabled
 }
 
 /**
@@ -63,4 +66,7 @@ export interface UpdateTieOnInput {
   minimum_id?: number | null;
   // Auto-calculation fields
   expected_inclination?: number | null;
+  // BHC and Proposal Direction
+  is_bhc?: boolean;
+  proposal_direction?: number | null;
 }

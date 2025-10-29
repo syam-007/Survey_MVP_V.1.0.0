@@ -121,6 +121,41 @@ class WellsService {
   }
 
   /**
+   * Create a new well with location in a single atomic transaction
+   * @param wellData - Well creation data
+   * @param locationData - Location creation data
+   * @returns Created well with location
+   */
+  async createWellWithLocation(wellData: CreateWellInput, locationData: any): Promise<Well> {
+    try {
+      console.log('Creating well with location - Request payload:', {
+        well_id: wellData.well_id,
+        well_name: wellData.well_name,
+        location: locationData,
+      });
+
+      const response = await this.api.post<Well>('/api/v1/wells/create_with_location/', {
+        well_id: wellData.well_id,
+        well_name: wellData.well_name,
+        location: locationData,
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('createWellWithLocation error:', error);
+      console.error('Error response:', error.response);
+      console.error('Error response data:', error.response?.data);
+
+      // Preserve the original error for better debugging
+      if (error.response) {
+        const enrichedError: any = this.handleError(error, 'Failed to create well with location');
+        enrichedError.response = error.response;
+        throw enrichedError;
+      }
+      throw this.handleError(error, 'Failed to create well with location');
+    }
+  }
+
+  /**
    * Update an existing well
    * @param id - Well UUID
    * @param data - Updated well data

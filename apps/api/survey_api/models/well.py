@@ -9,16 +9,9 @@ class Well(models.Model):
     Wells can have multiple survey runs associated with them.
     """
 
-    WELL_TYPE_CHOICES = [
-        ('Oil', 'Oil'),
-        ('Gas', 'Gas'),
-        ('Water', 'Water'),
-        ('Other', 'Other'),
-    ]
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    well_id = models.CharField(max_length=100, unique=True, null=True, blank=True, help_text='Unique well identifier')
     well_name = models.CharField(max_length=255, unique=True)
-    well_type = models.CharField(max_length=50, choices=WELL_TYPE_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -28,4 +21,4 @@ class Well(models.Model):
         verbose_name_plural = 'Wells'
 
     def __str__(self):
-        return f"{self.well_name} ({self.well_type})"
+        return f"{self.well_id} - {self.well_name}"

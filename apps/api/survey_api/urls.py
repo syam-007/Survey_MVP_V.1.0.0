@@ -38,8 +38,9 @@ from survey_api.views.depth_viewset import DepthViewSet
 from survey_api.views.survey_viewset import SurveyViewSet
 from survey_api.views.tieon_viewset import TieOnViewSet
 from survey_api.views.upload_viewset import upload_survey_file, delete_survey_file
+from survey_api.views.qa_viewset import upload_gtl_for_qa, save_qa_approved, delete_qa_record, approve_gtl_qa_temp
 from survey_api.views.status_viewset import get_survey_status
-from survey_api.views.survey_data_viewset import get_survey_data_detail
+from survey_api.views.survey_data_viewset import get_survey_data_detail, generate_survey_report_view, approve_qa_and_calculate
 from survey_api.views.calculation_viewset import CalculationViewSet
 from survey_api.views.interpolation_viewset import InterpolationViewSet
 from survey_api.views.export_viewset import (
@@ -111,6 +112,12 @@ urlpatterns = [
     # Survey file upload endpoint
     path("api/v1/surveys/upload/", upload_survey_file, name="upload_survey_file"),
 
+    # GTL QA endpoints
+    path("api/v1/surveys/gtl/qa/upload/", upload_gtl_for_qa, name="upload_gtl_for_qa"),
+    path("api/v1/surveys/gtl/qa/temp/<str:temp_qa_id>/approve/", approve_gtl_qa_temp, name="approve_gtl_qa_temp"),
+    path("api/v1/surveys/gtl/qa/<uuid:qa_id>/save/", save_qa_approved, name="save_qa_approved"),
+    path("api/v1/surveys/gtl/qa/<uuid:qa_id>/delete/", delete_qa_record, name="delete_qa_record"),
+
     # Survey file delete endpoint
     path("api/v1/surveys/files/<uuid:file_id>/delete/", delete_survey_file, name="delete_survey_file"),
 
@@ -119,6 +126,12 @@ urlpatterns = [
 
     # Survey data detail endpoint
     path("api/v1/surveys/<uuid:survey_data_id>/", get_survey_data_detail, name="get_survey_data_detail"),
+
+    # Survey report generation endpoint
+    path("api/v1/surveys/<uuid:survey_data_id>/report/", generate_survey_report_view, name="generate_survey_report"),
+
+    # QA approval and calculation endpoint
+    path("api/v1/surveys/<uuid:survey_data_id>/qa/approve/", approve_qa_and_calculate, name="approve_qa_and_calculate"),
 
     # Survey export endpoints
     path("api/v1/surveys/export/calculated/<uuid:calculated_survey_id>/",

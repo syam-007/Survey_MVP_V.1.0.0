@@ -63,6 +63,9 @@ export interface InterpolatedSurveyResponse {
   northing_interpolated: number[];
   tvd_interpolated: number[];
   dls_interpolated: number[];
+  vertical_section_interpolated?: number[];
+  closure_distance_interpolated?: number[];
+  closure_direction_interpolated?: number[];
   interpolation_status: string;
   point_count: number;
   interpolation_duration: number;

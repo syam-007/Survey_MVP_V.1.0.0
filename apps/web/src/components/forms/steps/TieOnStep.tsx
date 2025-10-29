@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -79,6 +79,19 @@ const tieonSchema = yup.object({
     .nullable()
     .min(0, 'Expected inclination must be >= 0')
     .max(180, 'Expected inclination must be <= 180'),
+  is_bhc: yup
+    .boolean()
+    .default(false),
+  proposal_direction: yup
+    .number()
+    .nullable()
+    .min(0, 'Proposal direction must be >= 0')
+    .max(360, 'Proposal direction must be <= 360')
+    .when('is_bhc', {
+      is: false,
+      then: (schema) => schema.required('Proposal direction is required when BHC is not enabled'),
+      otherwise: (schema) => schema.nullable(),
+    }),
 });
 
 export interface TieOnStepProps {
@@ -123,6 +136,7 @@ export const TieOnStep: React.FC<TieOnStepProps> = ({
   const surveyIntervalFrom = watch('survey_interval_from');
   const surveyIntervalTo = watch('survey_interval_to');
   const expectedInclination = watch('expected_inclination');
+  const isBhc = watch('is_bhc');
 
   // Fetch hole sections on mount
   useEffect(() => {
@@ -236,10 +250,23 @@ export const TieOnStep: React.FC<TieOnStepProps> = ({
     }
   }, [expectedInclination, setValue]);
 
+  // Auto-set proposal_direction to 0 when BHC is enabled
+  useEffect(() => {
+    if (isBhc) {
+      setValue('proposal_direction', 0);
+    }
+  }, [isBhc, setValue]);
+
+  // Use ref to store onChange to avoid infinite loop
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
   // Update parent on change
   useEffect(() => {
-    onChange(formData);
-  }, [formData, onChange]);
+    onChangeRef.current(formData);
+  }, [formData]);
 
   // Handle Tie-On From Surface button click - set all tie-on values to zero
   const handleTieOnFromSurface = () => {
@@ -481,6 +508,67 @@ export const TieOnStep: React.FC<TieOnStepProps> = ({
                     </FormHelperText>
                   )}
                 </FormControl>
+              </Grid>
+
+              {/* BHC Checkbox */}
+              <Grid item xs={12}>
+                <Controller
+                  name="is_bhc"
+                  control={control}
+                  defaultValue={false}
+                  render={({ field }) => (
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          {...field}
+                          checked={field.value || false}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                        />
+                      }
+                      label="BHC (Bottom Hole Convergence)"
+                    />
+                  )}
+                />
+                <FormHelperText>
+                  When enabled, proposal direction is automatically set to 0°
+                </FormHelperText>
+              </Grid>
+
+              {/* Proposal Direction */}
+              <Grid item xs={12}>
+                <Controller
+                  name="proposal_direction"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value ?? ''}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '' || value === null) {
+                          field.onChange(null);
+                        } else {
+                          const numValue = parseFloat(value);
+                          if (!isNaN(numValue)) {
+                            field.onChange(numValue);
+                          }
+                        }
+                      }}
+                      type="number"
+                      label="Proposal Direction"
+                      fullWidth
+                      required={!isBhc}
+                      disabled={isBhc}
+                      error={!!errors.proposal_direction}
+                      helperText={
+                        errors.proposal_direction?.message ||
+                        (isBhc ? 'Auto-set to 0° when BHC is enabled' : 'Enter proposal direction (0-360 degrees)')
+                      }
+                      placeholder="e.g., 45.5"
+                      inputProps={{ step: '0.01', min: 0, max: 360 }}
+                    />
+                  )}
+                />
               </Grid>
 
               {/* Hole Section Master */}

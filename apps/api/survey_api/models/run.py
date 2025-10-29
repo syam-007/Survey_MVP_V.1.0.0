@@ -20,17 +20,25 @@ class Run(models.Model):
     vertical section information, configuration flags, and directional data.
     """
 
-    RUN_TYPE_CHOICES = [
+    SURVEY_TYPE_CHOICES = [
         ('GTL', 'GTL'),
         ('Gyro', 'Gyro'),
         ('MWD', 'MWD'),
         ('Unknown', 'Unknown'),
     ]
 
+    RUN_TYPE_CHOICES = [
+        ('Memory', 'Memory'),
+        ('Surface Readout', 'Surface Readout'),
+        ('Dummy', 'Dummy'),
+        ('Test Stand', 'Test Stand'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     run_number = models.CharField(max_length=100, unique=True)
     run_name = models.CharField(max_length=255, unique=True)
-    run_type = models.CharField(max_length=50, choices=RUN_TYPE_CHOICES)
+    survey_type = models.CharField(max_length=50, choices=SURVEY_TYPE_CHOICES)
+    run_type = models.CharField(max_length=50, choices=RUN_TYPE_CHOICES, null=True, blank=True)
     vertical_section = models.JSONField(null=True, blank=True)
     bhc_enabled = models.BooleanField(default=False)
     proposal_direction = models.DecimalField(

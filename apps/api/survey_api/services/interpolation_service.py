@@ -24,7 +24,9 @@ class InterpolationService:
     @staticmethod
     def interpolate(
         calculated_survey_id: str,
-        resolution: int = DEFAULT_RESOLUTION
+        resolution: int = DEFAULT_RESOLUTION,
+        start_md: Optional[float] = None,
+        end_md: Optional[float] = None
     ) -> InterpolatedSurvey:
         """
         Interpolate calculated survey at specified resolution.
@@ -32,6 +34,8 @@ class InterpolationService:
         Args:
             calculated_survey_id: UUID of CalculatedSurvey
             resolution: Interpolation step size (1-100 meters)
+            start_md: Optional start MD for custom range
+            end_md: Optional end MD for custom range
 
         Returns:
             InterpolatedSurvey instance (existing or newly created)
@@ -82,7 +86,12 @@ class InterpolationService:
 
             try:
                 # Call welleng interpolation
-                result = WellengService.interpolate_survey(calculated_data, resolution)
+                result = WellengService.interpolate_survey(
+                    calculated_data,
+                    resolution,
+                    start_md=start_md,
+                    end_md=end_md
+                )
 
                 duration = time.time() - start_time
 
@@ -157,6 +166,94 @@ class InterpolationService:
 
         except Exception as e:
             logger.error(f"Unexpected error in interpolation service: {type(e).__name__}: {str(e)}")
+            raise
+
+    @staticmethod
+    def calculate_interpolation_data(
+        calculated_survey_id: str,
+        resolution: int = DEFAULT_RESOLUTION,
+        start_md: Optional[float] = None,
+        end_md: Optional[float] = None
+    ) -> dict:
+        """
+        Calculate interpolation data without saving to database.
+
+        This is used for on-demand calculation where user wants to preview
+        results before explicitly saving to database.
+
+        Args:
+            calculated_survey_id: UUID of CalculatedSurvey
+            resolution: Interpolation step size (1-100 meters)
+            start_md: Optional start MD for custom range
+            end_md: Optional end MD for custom range
+
+        Returns:
+            Dictionary with interpolation results
+
+        Raises:
+            InsufficientDataError: If CalculatedSurvey not found
+            WellengCalculationError: If interpolation fails
+        """
+        try:
+            logger.info(f"Calculating interpolation data (not saving) for CalculatedSurvey {calculated_survey_id} at resolution={resolution}m")
+
+            # Get calculated survey with related data
+            calc_survey = CalculatedSurvey.objects.select_related('survey_data').get(
+                id=calculated_survey_id
+            )
+
+            # Validate calculated survey is in completed state
+            if calc_survey.calculation_status != 'calculated':
+                raise InsufficientDataError(
+                    f"Cannot interpolate: CalculatedSurvey status is '{calc_survey.calculation_status}', expected 'calculated'"
+                )
+
+            # Prepare data for welleng interpolation
+            survey_data = calc_survey.survey_data
+            calculated_data = {
+                'md': survey_data.md_data,
+                'inc': survey_data.inc_data,
+                'azi': survey_data.azi_data,
+                'easting': calc_survey.easting,
+                'northing': calc_survey.northing,
+                'tvd': calc_survey.tvd,
+            }
+
+            logger.debug(f"Prepared data: {len(survey_data.md_data)} original points")
+
+            # Measure interpolation time
+            start_time = time.time()
+
+            # Call welleng interpolation
+            result = WellengService.interpolate_survey(
+                calculated_data,
+                resolution,
+                start_md=start_md,
+                end_md=end_md
+            )
+
+            duration = time.time() - start_time
+
+            # Add metadata to result
+            result['resolution'] = resolution
+            result['interpolation_duration'] = round(duration, 3)
+            result['calculated_survey_id'] = str(calculated_survey_id)
+            result['is_saved'] = False  # Flag to indicate this is not saved
+
+            logger.info(
+                f"Interpolation calculated (not saved): "
+                f"{result['point_count']} points in {duration:.3f}s"
+            )
+
+            return result
+
+        except CalculatedSurvey.DoesNotExist:
+            logger.error(f"CalculatedSurvey not found: {calculated_survey_id}")
+            raise InsufficientDataError(
+                f"CalculatedSurvey with id {calculated_survey_id} not found"
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error calculating interpolation: {type(e).__name__}: {str(e)}")
             raise
 
     @staticmethod

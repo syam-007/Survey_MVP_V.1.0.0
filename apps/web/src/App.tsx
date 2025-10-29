@@ -16,6 +16,7 @@ import { CreateCompleteRunPage } from './pages/runs/CreateCompleteRunPage';
 import { RunDetailPage } from './pages/runs/RunDetailPage';
 import { EditRunPage } from './pages/runs/EditRunPage';
 import { SurveyResultsPage } from './pages/runs/SurveyResultsPage';
+import { QAReviewPage } from './pages/runs/QAReviewPage';
 import { ComparisonPage } from './pages/runs/ComparisonPage';
 import { ComparisonDetailPage } from './pages/runs/ComparisonDetailPage';
 import { AdjustmentPage } from './pages/runs/AdjustmentPage';
@@ -121,6 +122,14 @@ function App() {
                 <RoleProtectedRoute requiredRole="Engineer">
                   <EditRunPage />
                 </RoleProtectedRoute>
+              }
+            />
+            <Route
+              path="/runs/:runId/qa-review"
+              element={
+                <ProtectedRoute>
+                  <QAReviewPage />
+                </ProtectedRoute>
               }
             />
             <Route

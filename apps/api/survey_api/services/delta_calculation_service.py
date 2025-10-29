@@ -220,6 +220,23 @@ class DeltaCalculationService:
         comp_northing = np.array(comp_calc.northing, dtype=float)
         comp_tvd = np.array(comp_calc.tvd, dtype=float)
 
+        # Validate comparison survey array lengths
+        if len(comp_md) != len(comp_inc):
+            raise InvalidSurveyDataError(
+                f"Comparison survey data inconsistency: MD length ({len(comp_md)}) != INC length ({len(comp_inc)}). "
+                f"Survey ID: {comp_survey.id}"
+            )
+        if len(comp_md) != len(comp_azi):
+            raise InvalidSurveyDataError(
+                f"Comparison survey data inconsistency: MD length ({len(comp_md)}) != AZI length ({len(comp_azi)}). "
+                f"Survey ID: {comp_survey.id}"
+            )
+        if len(comp_md) != len(comp_easting):
+            raise InvalidSurveyDataError(
+                f"Comparison survey data inconsistency: MD length ({len(comp_md)}) != Easting length ({len(comp_easting)}). "
+                f"Survey ID: {comp_survey.id}"
+            )
+
         comp_aligned = {
             'inc': np.interp(md_aligned, comp_md, comp_inc),
             'azi': np.interp(md_aligned, comp_md, comp_azi),
@@ -234,6 +251,23 @@ class DeltaCalculationService:
         ref_easting = np.array(ref_calc.easting, dtype=float)
         ref_northing = np.array(ref_calc.northing, dtype=float)
         ref_tvd = np.array(ref_calc.tvd, dtype=float)
+
+        # Validate reference survey array lengths
+        if len(ref_md) != len(ref_inc):
+            raise InvalidSurveyDataError(
+                f"Reference survey data inconsistency: MD length ({len(ref_md)}) != INC length ({len(ref_inc)}). "
+                f"Survey ID: {ref_survey.id}"
+            )
+        if len(ref_md) != len(ref_azi):
+            raise InvalidSurveyDataError(
+                f"Reference survey data inconsistency: MD length ({len(ref_md)}) != AZI length ({len(ref_azi)}). "
+                f"Survey ID: {ref_survey.id}"
+            )
+        if len(ref_md) != len(ref_easting):
+            raise InvalidSurveyDataError(
+                f"Reference survey data inconsistency: MD length ({len(ref_md)}) != Easting length ({len(ref_easting)}). "
+                f"Survey ID: {ref_survey.id}"
+            )
 
         ref_aligned = {
             'inc': np.interp(md_aligned, ref_md, ref_inc),

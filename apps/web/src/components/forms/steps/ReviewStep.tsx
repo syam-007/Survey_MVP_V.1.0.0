@@ -62,7 +62,8 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data }) => {
         <Grid container spacing={2}>
           {renderField('Run Number', data.run.run_number)}
           {renderField('Run Name', data.run.run_name)}
-          {renderField('Run Type', data.run.run_type, true)}
+          {renderField('Survey Type', data.run.survey_type, true)}
+          {renderField('Run Type', data.run.run_type)}
           {renderField('Well ID', data.run.well)}
         </Grid>
 
@@ -70,13 +71,50 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data }) => {
 
         {/* Location Section */}
         {renderSectionHeader('2. Location Information')}
+
+        <Typography variant="subtitle2" sx={{ mt: 1, mb: 1, fontWeight: 600, color: 'primary.main' }}>
+          Coordinates
+        </Typography>
         <Grid container spacing={2}>
-          {renderField('Latitude', data.location.latitude)}
-          {renderField('Longitude', data.location.longitude)}
-          {renderField('Geodetic System', data.location.geodetic_system, true)}
+          {renderField('Latitude (Decimal)', data.location.latitude ? `${Number(data.location.latitude).toFixed(8)}°` : null)}
+          {renderField('Longitude (Decimal)', data.location.longitude ? `${Number(data.location.longitude).toFixed(8)}°` : null)}
+          {renderField('Latitude (DMS)',
+            data.location.latitude_degrees !== undefined
+              ? `${data.location.latitude_degrees}° ${data.location.latitude_minutes || 0}' ${data.location.latitude_seconds?.toFixed(3) || 0}"`
+              : null
+          )}
+          {renderField('Longitude (DMS)',
+            data.location.longitude_degrees !== undefined
+              ? `${data.location.longitude_degrees}° ${data.location.longitude_minutes || 0}' ${data.location.longitude_seconds?.toFixed(3) || 0}"`
+              : null
+          )}
+          {renderField('Easting (UTM)', data.location.easting ? `${Number(data.location.easting).toFixed(3)} m` : null)}
+          {renderField('Northing (UTM)', data.location.northing ? `${Number(data.location.northing).toFixed(3)} m` : null)}
+        </Grid>
+
+        <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, fontWeight: 600, color: 'primary.main' }}>
+          Geodetic Information
+        </Typography>
+        <Grid container spacing={2}>
+          {renderField('Geodetic Datum', data.location.geodetic_datum)}
+          {renderField('Geodetic System', data.location.geodetic_system)}
           {renderField('Map Zone', data.location.map_zone)}
           {renderField('North Reference', data.location.north_reference, true)}
-          {renderField('Central Meridian', data.location.central_meridian)}
+          {renderField('Central Meridian', data.location.central_meridian ? `${Number(data.location.central_meridian).toFixed(1)}°` : null)}
+        </Grid>
+
+        {/* Calculated Location Fields */}
+        <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, fontWeight: 600, color: 'primary.main' }}>
+          Calculated Fields
+        </Typography>
+        <Grid container spacing={2}>
+          {renderField('Grid Correction', data.location.grid_correction)}
+          {renderField('w(t) - Scale Factor', data.location.w_t)}
+          {renderField('Min w(t)', data.location.min_w_t)}
+          {renderField('Max w(t)', data.location.max_w_t)}
+          {renderField('g(t) - Grid Convergence', data.location.g_t)}
+          {renderField('Min g(t)', data.location.min_g_t)}
+          {renderField('Max g(t)', data.location.max_g_t)}
         </Grid>
 
         <Divider sx={{ my: 3 }} />

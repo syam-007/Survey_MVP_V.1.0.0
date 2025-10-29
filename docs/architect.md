@@ -13,6 +13,7 @@ This unified approach combines what would traditionally be separate backend and 
 | Date | Version | Description | Author |
 |------|---------|-------------|---------|
 | 2024-12-19 | 1.0 | Initial architecture document | Winston (Architect) |
+| 2025-01-28 | 1.1 | Added comparison results enhancements: color-coded data tables, tabbed visualizations, GTL QA workflow, database optimizations | System |
 
 ## High Level Architecture
 
@@ -114,6 +115,7 @@ graph TB
 - bhc_enabled: boolean - Bottom Hole Closure flag
 - proposal_direction: float - Calculated proposal direction
 - grid_correction: float - Grid correction value
+- calculation_status: enum - Status of survey calculation ('uploaded', 'calculated', 'completed')
 - created_at: datetime - Creation timestamp
 - updated_at: datetime - Last update timestamp
 
@@ -205,6 +207,140 @@ interface SurveyFile {
 #### Relationships
 - Belongs to Run
 - Has many SurveyCalculations
+
+### Comparison
+**Purpose:** Represents a comparison between two survey files with delta calculations
+
+**Key Attributes:**
+- id: UUID - Primary key identifier
+- run_id: UUID - Reference to parent run
+- primary_survey_id: UUID - Primary survey file reference
+- reference_survey_id: UUID - Reference survey file reference
+- md_data: array - Measured depth values
+- delta_x: array - X position delta values
+- delta_y: array - Y position delta values
+- delta_z: array - Z position delta values
+- delta_horizontal: array - Horizontal distance delta
+- delta_total: array - Total distance delta
+- delta_inc: array - Inclination delta values
+- delta_azi: array - Azimuth delta values
+- statistics: object - Statistical summary of deltas
+- created_at: datetime - Comparison timestamp
+
+#### TypeScript Interface
+```typescript
+interface ComparisonResult {
+  id: string;
+  run_id: string;
+  primary_survey_info: {
+    file_name: string;
+    survey_type: string;
+    row_count: number;
+  };
+  reference_survey_info: {
+    file_name: string;
+    survey_type: string;
+    row_count: number;
+  };
+  md_data: number[];
+  reference_inc?: number[];
+  reference_azi?: number[];
+  comparison_inc?: number[];
+  comparison_azi?: number[];
+  delta_x: number[];
+  delta_y: number[];
+  delta_z: number[];
+  delta_horizontal: number[];
+  delta_total: number[];
+  delta_inc: number[];
+  delta_azi: number[];
+  statistics: ComparisonStatistics;
+  created_at: string;
+}
+
+interface ComparisonStatistics {
+  point_count: number;
+  max_delta_x: number;
+  max_delta_y: number;
+  max_delta_z: number;
+  max_delta_horizontal: number;
+  max_delta_total: number;
+  max_delta_inc: number;
+  max_delta_azi: number;
+  avg_delta_x: number;
+  avg_delta_y: number;
+  avg_delta_z: number;
+  avg_delta_horizontal: number;
+  avg_delta_total: number;
+  avg_delta_inc: number;
+  avg_delta_azi: number;
+  std_delta_horizontal: number;
+  std_delta_total: number;
+  std_delta_inc: number;
+  std_delta_azi: number;
+  deviation_at_start: DeviationPoint;
+  deviation_at_25_percent: DeviationPoint;
+  deviation_at_50_percent: DeviationPoint;
+  deviation_at_75_percent: DeviationPoint;
+  deviation_at_end: DeviationPoint;
+}
+```
+
+#### Relationships
+- Belongs to Run
+- References two SurveyFiles (primary and reference)
+
+### QualityCheck
+**Purpose:** Represents GTL survey quality assurance data and results
+
+**Key Attributes:**
+- id: UUID - Primary key identifier
+- run_id: UUID - Reference to parent run
+- survey_id: UUID - Survey file reference
+- md_data: array - Measured depth values
+- file_wt: array - W(t) values from file
+- file_gt: array - G(t) values from file
+- location_wt: array - W(t) values from location (rounded to 1 decimal)
+- location_gt: array - G(t) values from location (rounded to 1 decimal)
+- delta_wt: array - Delta W(t) (Location - File)
+- delta_gt: array - Delta G(t) (Location - File)
+- qa_status: enum - QA approval status ('calculated', 'completed')
+- statistics: object - QA statistical summary
+- created_at: datetime - QA calculation timestamp
+
+#### TypeScript Interface
+```typescript
+interface QualityCheck {
+  id: string;
+  run_id: string;
+  survey_id: string;
+  md_data: number[];
+  file_wt: number[];
+  file_gt: number[];
+  location_wt: number[];  // Rounded to 1 decimal
+  location_gt: number[];  // Rounded to 1 decimal
+  delta_wt: number[];     // Location - File
+  delta_gt: number[];     // Location - File
+  qa_status: 'calculated' | 'completed';
+  statistics: {
+    max_delta_wt: number;
+    max_delta_gt: number;
+    avg_delta_wt: number;
+    avg_delta_gt: number;
+    std_delta_wt: number;
+    std_delta_gt: number;
+  };
+  created_at: string;
+}
+```
+
+#### Relationships
+- Belongs to Run
+- References SurveyFile
+
+#### Database Optimizations
+- Location W(t) and G(t) values rounded to 1 decimal place at database level using `ROUND()` function
+- Ensures consistency between file data and location data for accurate QA calculations
 
 ## API Specification
 
@@ -576,12 +712,32 @@ src/
 │   ├── common/           # Reusable UI components
 │   ├── forms/            # Form components
 │   ├── charts/           # Visualization components
+│   ├── comparison/       # Comparison-specific components
+│   │   ├── ComparisonResults.tsx
+│   │   ├── ComparisonPlot3D.tsx
+│   │   ├── DeltaVsMDPlot.tsx
+│   │   └── AngularComparisonPlot.tsx
+│   ├── survey/           # Survey-specific components
+│   │   ├── GTLQAUploadDialog.tsx
+│   │   ├── GTLQAReviewDialog.tsx
+│   │   └── QAResultsSection.tsx
 │   └── layout/           # Layout components
 ├── pages/                # Page components
+│   └── runs/
+│       ├── ComparisonDetailPage.tsx
+│       ├── SurveyResultsPage.tsx
+│       └── AdjustmentPage.tsx
 ├── hooks/                # Custom React hooks
+│   ├── useComparison.ts
+│   └── useSurveyPlotData.ts
 ├── services/             # API client services
+│   ├── comparisonService.ts
+│   └── qaService.ts
 ├── stores/               # Redux store slices
 ├── types/                # TypeScript type definitions
+│   ├── comparison.types.ts
+│   ├── survey.types.ts
+│   └── qa.types.ts
 └── utils/                # Utility functions
 ```
 
@@ -603,6 +759,94 @@ export const Component: React.FC<ComponentProps> = ({ title, children }) => {
     </Box>
   );
 };
+```
+
+#### Key UI Components Implementation
+
+##### ComparisonResults Component
+**Purpose:** Display comprehensive comparison analysis with color-coded data and interactive visualizations
+
+**Key Features:**
+- **Tabbed Visualization Interface:** Three tabs for different views (3D, Position Deltas, Angular Deltas)
+- **Color-Coded Data Table:** Dynamic color coding based on deviation thresholds
+- **Responsive Layout:** Uses Material-UI Grid system with proper breakpoints
+- **Export Functionality:** Excel/CSV export capabilities
+
+**Implementation Details:**
+```typescript
+interface ComparisonResultsProps {
+  comparison: ComparisonResult;
+  onNewComparison: () => void;
+}
+
+export const ComparisonResults: React.FC<ComparisonResultsProps> = ({
+  comparison,
+  onNewComparison,
+}) => {
+  const [activeTab, setActiveTab] = useState(0);
+
+  // Color coding function for delta values
+  const getDeltaColor = (value: number, type: 'position' | 'angular') => {
+    const absValue = Math.abs(value);
+    if (type === 'position') {
+      if (absValue < 0.1) return '#c8e6c9'; // Green
+      if (absValue < 0.3) return '#fff59d'; // Yellow
+      return '#ffcdd2'; // Red
+    } else {
+      if (absValue < 0.5) return '#c8e6c9'; // Green
+      if (absValue < 1.5) return '#fff59d'; // Yellow
+      return '#ffcdd2'; // Red
+    }
+  };
+
+  return (
+    <Card>
+      {/* Survey Information Cards */}
+      {/* Comparison Result Data Table with color coding */}
+      {/* Statistical Summary */}
+      {/* Tabbed Visualizations */}
+      <Tabs value={activeTab} onChange={handleTabChange}>
+        <Tab label="3D Survey Comparison" />
+        <Tab label="Position Deltas vs MD" />
+        <Tab label="Angular Deltas vs MD" />
+      </Tabs>
+    </Card>
+  );
+};
+```
+
+**Color Coding Thresholds:**
+- Position Deltas (meters): Green < 0.1 < Yellow < 0.3 < Red
+- Angular Deltas (degrees): Green < 0.5 < Yellow < 1.5 < Red
+
+**Visualization Architecture:**
+- Uses Plotly.js for interactive 2D/3D plots
+- Tabs use conditional rendering for performance optimization
+- Minimum heights set (700px for 3D, 600px for 2D) with scrollable overflow
+
+##### GTL QA Components
+**Purpose:** Handle GTL survey quality assurance workflow
+
+**Key Components:**
+1. **GTLQAUploadDialog:** File upload interface for QA surveys
+2. **GTLQAReviewDialog:** QA results review and approval interface
+3. **QAResultsSection:** Display QA calculation results with color coding
+
+**QA Workflow States:**
+- `uploaded` → `calculated` → `completed` (after approval)
+
+**Implementation Pattern:**
+```typescript
+interface QAResult {
+  md: number[];
+  file_wt: number[];
+  file_gt: number[];
+  location_wt: number[];
+  location_gt: number[];
+  delta_wt: number[];  // Location - File
+  delta_gt: number[];  // Location - File
+  status: 'calculated' | 'completed';
+}
 ```
 
 ### State Management Architecture

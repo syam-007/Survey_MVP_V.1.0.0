@@ -1,9 +1,11 @@
 /**
  * SurveyUploadDialog Component
  *
- * Dialog for uploading survey files to a run.
+ * Dialog for uploading survey files to a run (non-GTL surveys).
+ * For GTL surveys, use GTLQAUploadDialog instead.
  */
 import React, { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogTitle,
@@ -42,11 +44,27 @@ export const SurveyUploadDialog: React.FC<SurveyUploadDialogProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const navigate = useNavigate();
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [surveyType, setSurveyType] = useState<string>('');
-  const [surveyRole, setSurveyRole] = useState<string>('primary');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Automatically determine survey type from survey_type
+  const getSurveyType = () => {
+    switch (run.survey_type) {
+      case 'GTL':
+        return 'Type 1 - GTL';
+      case 'Gyro':
+        return 'Type 2 - Gyro';
+      case 'MWD':
+        return 'Type 3 - MWD';
+      default:
+        return 'Type 1 - GTL'; // Default to GTL
+    }
+  };
+
+  const surveyType = getSurveyType();
+  const surveyRole = 'primary'; // Always use primary survey
 
   // File dropzone
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -68,13 +86,12 @@ export const SurveyUploadDialog: React.FC<SurveyUploadDialogProps> = ({
   });
 
   const handleUpload = async () => {
-    if (!uploadedFile || !surveyType) return;
+    if (!uploadedFile) return;
 
     setIsUploading(true);
     setUploadError(null);
 
     try {
-      // Upload survey
       const formData = new FormData();
       formData.append('file', uploadedFile);
       formData.append('run_id', run.id);
@@ -108,8 +125,6 @@ export const SurveyUploadDialog: React.FC<SurveyUploadDialogProps> = ({
 
       // Reset form
       setUploadedFile(null);
-      setSurveyType('');
-      setSurveyRole('primary');
 
       // Call success callback
       if (onSuccess) {
@@ -118,6 +133,12 @@ export const SurveyUploadDialog: React.FC<SurveyUploadDialogProps> = ({
 
       // Close dialog
       handleClose();
+
+      // Navigate to survey results page
+      const surveyDataId = data.id || data.survey_data?.id;
+      if (surveyDataId) {
+        navigate(`/runs/${run.id}/surveys/${surveyDataId}`);
+      }
     } catch (error: any) {
       console.error('Upload failed:', error);
       setUploadError(error.message || 'Failed to upload survey. Please try again.');
@@ -130,13 +151,11 @@ export const SurveyUploadDialog: React.FC<SurveyUploadDialogProps> = ({
     if (isUploading) return;
 
     setUploadedFile(null);
-    setSurveyType('');
-    setSurveyRole('primary');
     setUploadError(null);
     onClose();
   };
 
-  const canUpload = uploadedFile && surveyType && !isUploading;
+  const canUpload = uploadedFile && !isUploading;
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -153,6 +172,10 @@ export const SurveyUploadDialog: React.FC<SurveyUploadDialogProps> = ({
         <Stack spacing={3}>
           <Alert severity="info">
             Upload a survey file (CSV, XLS, or XLSX) with MD, INC, and AZI columns.
+            <br />
+            <Typography variant="caption" component="div" sx={{ mt: 1 }}>
+              Survey Type: <strong>{surveyType}</strong> (auto-detected from run type)
+            </Typography>
           </Alert>
 
           {uploadError && (
@@ -188,31 +211,6 @@ export const SurveyUploadDialog: React.FC<SurveyUploadDialogProps> = ({
               Supported formats: CSV, XLS, XLSX
             </Typography>
           </Paper>
-
-          <FormControl fullWidth disabled={isUploading || !uploadedFile}>
-            <InputLabel>Survey Type</InputLabel>
-            <Select
-              value={surveyType}
-              onChange={(e) => setSurveyType(e.target.value)}
-              label="Survey Type"
-            >
-              <MenuItem value="Type 1 - GTL">GTL (Gyro Tool Log)</MenuItem>
-              <MenuItem value="Type 2 - Gyro">Gyro</MenuItem>
-              <MenuItem value="Type 3 - MWD">MWD (Measurement While Drilling)</MenuItem>
-            </Select>
-          </FormControl>
-
-          <FormControl fullWidth disabled={isUploading || !uploadedFile}>
-            <InputLabel>Survey Role</InputLabel>
-            <Select
-              value={surveyRole}
-              onChange={(e) => setSurveyRole(e.target.value)}
-              label="Survey Role"
-            >
-              <MenuItem value="primary">Primary Survey</MenuItem>
-              <MenuItem value="reference">Reference Survey</MenuItem>
-            </Select>
-          </FormControl>
 
           {isUploading && (
             <Box>

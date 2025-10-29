@@ -11,7 +11,7 @@ class LocationSerializer(serializers.ModelSerializer):
     """
     Full serializer for Location model with all fields.
 
-    Calculated fields (easting, northing, grid_correction, g_t, max_g_t, w_t, max_w_t)
+    Calculated fields (easting, northing, grid_correction, g_t, min_g_t, max_g_t, w_t, min_w_t, max_w_t)
     are read-only as they are computed automatically.
     """
     north_coordinate = serializers.SerializerMethodField()
@@ -41,10 +41,12 @@ class LocationSerializer(serializers.ModelSerializer):
             'north_reference',
             'central_meridian',
             'grid_correction',
-            'g_t',
-            'max_g_t',
             'w_t',
+            'min_w_t',
             'max_w_t',
+            'g_t',
+            'min_g_t',
+            'max_g_t',
             'created_at',
             'updated_at',
         ]
@@ -55,10 +57,12 @@ class LocationSerializer(serializers.ModelSerializer):
             'easting',
             'northing',
             'grid_correction',
-            'g_t',
-            'max_g_t',
             'w_t',
+            'min_w_t',
             'max_w_t',
+            'g_t',
+            'min_g_t',
+            'max_g_t',
             'created_at',
             'updated_at',
         ]
@@ -81,7 +85,8 @@ class CreateLocationSerializer(serializers.ModelSerializer):
     - Longitude range: -180 to 180 (if provided, otherwise calculated from DMS)
     - Exactly one of run or well must be set (run XOR well)
 
-    Calculated fields are automatically computed via LocationService.
+    Easting and Northing are required user inputs.
+    Grid Correction, G_T, and W_T are automatically calculated.
     geodetic_datum defaults to "PSD 93" and is read-only.
     geodetic_system defaults to "Universal Transverse Mercator" and is read-only.
     map_zone defaults to "Zone 40N(54E to 60E)" and is read-only.
@@ -101,6 +106,8 @@ class CreateLocationSerializer(serializers.ModelSerializer):
             'longitude_degrees',
             'longitude_minutes',
             'longitude_seconds',
+            'easting',
+            'northing',
             'geodetic_datum',
             'geodetic_system',
             'map_zone',
@@ -170,8 +177,8 @@ class UpdateLocationSerializer(serializers.ModelSerializer):
     """
     Serializer for updating Location instances with re-calculation support.
 
-    If coordinate fields (latitude, longitude, central_meridian, geodetic_system, map_zone)
-    are modified, all calculated fields are automatically recalculated.
+    If coordinate fields (latitude, longitude, easting, northing, central_meridian,
+    geodetic_system, map_zone) are modified, all calculated fields are automatically recalculated.
     geodetic_datum, geodetic_system, map_zone, and north_reference are read-only and cannot be updated.
     """
 
@@ -186,6 +193,8 @@ class UpdateLocationSerializer(serializers.ModelSerializer):
             'longitude_degrees',
             'longitude_minutes',
             'longitude_seconds',
+            'easting',
+            'northing',
             'geodetic_datum',
             'geodetic_system',
             'map_zone',

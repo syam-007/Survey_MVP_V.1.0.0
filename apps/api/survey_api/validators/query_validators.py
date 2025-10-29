@@ -40,31 +40,6 @@ def validate_run_type(value):
     return value
 
 
-def validate_well_type(value):
-    """
-    Validate well_type query parameter.
-
-    Args:
-        value: The well_type value to validate
-
-    Returns:
-        str: The validated well_type value
-
-    Raises:
-        QueryValidationError: If well_type is not a valid choice
-    """
-    from survey_api.models import Well
-
-    valid_types = [choice[0] for choice in Well.WELL_TYPE_CHOICES]
-
-    if value not in valid_types:
-        raise QueryValidationError({
-            'well_type': f'Invalid well_type. Must be one of: {", ".join(valid_types)}'
-        })
-
-    return value
-
-
 def validate_uuid(value, field_name='id'):
     """
     Validate UUID format.

@@ -237,16 +237,67 @@ class SurveysService {
    * Get interpolated survey data
    * @param calculatedSurveyId - Calculated survey UUID
    * @param resolution - Interpolation resolution
+   * @param startMD - Optional start MD for custom range
+   * @param endMD - Optional end MD for custom range
    * @returns Interpolated survey data
    */
-  async getInterpolation(calculatedSurveyId: string, resolution: number): Promise<any> {
+  async getInterpolation(
+    calculatedSurveyId: string,
+    resolution: number,
+    startMD?: number,
+    endMD?: number
+  ): Promise<any> {
     try {
-      const response = await this.api.get(
-        `/api/v1/calculations/${calculatedSurveyId}/interpolation/${resolution}/`
-      );
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (startMD !== undefined) {
+        params.append('start_md', startMD.toString());
+      }
+      if (endMD !== undefined) {
+        params.append('end_md', endMD.toString());
+      }
+
+      const queryString = params.toString();
+      const url = `/api/v1/calculations/${calculatedSurveyId}/interpolation/${resolution}/${queryString ? `?${queryString}` : ''}`;
+
+      const response = await this.api.get(url);
       return response.data;
     } catch (error: any) {
       throw this.handleError(error, 'Failed to get interpolation');
+    }
+  }
+
+  /**
+   * Save interpolation to database
+   * @param calculatedSurveyId - Calculated survey UUID
+   * @param resolution - Interpolation resolution
+   * @param startMD - Optional start MD for custom range
+   * @param endMD - Optional end MD for custom range
+   * @returns Save result
+   */
+  async saveInterpolation(
+    calculatedSurveyId: string,
+    resolution: number,
+    startMD?: number,
+    endMD?: number
+  ): Promise<any> {
+    try {
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (startMD !== undefined) {
+        params.append('start_md', startMD.toString());
+      }
+      if (endMD !== undefined) {
+        params.append('end_md', endMD.toString());
+      }
+
+      const queryString = params.toString();
+      const url = `/api/v1/calculations/${calculatedSurveyId}/interpolation/${resolution}/save/${queryString ? `?${queryString}` : ''}`;
+
+      const response = await this.api.post(url);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error, 'Failed to save interpolation');
     }
   }
 

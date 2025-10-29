@@ -122,22 +122,10 @@ class SurveyCalculationService:
 
             logger.info(f"CalculatedSurvey created: {calculated_survey.id}")
 
-            # Trigger default interpolation (resolution = 5m)
-            # DECISION: Using synchronous processing
-            # Performance benchmarks show interpolation completes in < 2 seconds
-            try:
-                from survey_api.services.interpolation_service import InterpolationService
-
-                logger.info(f"Triggering default interpolation for CalculatedSurvey {calculated_survey.id}")
-                InterpolationService.interpolate(
-                    calculated_survey_id=str(calculated_survey.id),
-                    resolution=5
-                )
-                logger.info(f"Default interpolation completed for CalculatedSurvey {calculated_survey.id}")
-            except Exception as e:
-                # Log error but don't fail calculation
-                # Interpolation failure should not prevent survey calculation success
-                logger.error(f"Default interpolation failed for CalculatedSurvey {calculated_survey.id}: {str(e)}")
+            # NOTE: Automatic interpolation has been disabled
+            # Interpolation is now calculated on-demand when user requests it
+            # User must explicitly save interpolation to database via "Save to Database" button
+            # This ensures interpolation always starts from tie-on point with latest logic
 
             return calculated_survey
 

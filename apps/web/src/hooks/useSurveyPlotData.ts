@@ -21,18 +21,22 @@ interface UseSurveyPlotDataResult {
   metadata: SurveyMetadata | null;
   isLoading: boolean;
   error: Error | null;
+  isSaved: boolean;
   refetch: () => void;
 }
 
 export const useSurveyPlotData = (
   surveyDataId: string,
   dataSource: 'calculated' | 'interpolated',
-  resolution?: number
+  resolution?: number,
+  startMD?: number,
+  endMD?: number
 ): UseSurveyPlotDataResult => {
   const [data, setData] = useState<SurveyPlotData | null>(null);
   const [metadata, setMetadata] = useState<SurveyMetadata | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
+  const [isSaved, setIsSaved] = useState<boolean>(true); // For calculated data, always true; for interpolated, depends on API
   const [refetchTrigger, setRefetchTrigger] = useState(0);
 
   useEffect(() => {
@@ -65,12 +69,19 @@ export const useSurveyPlotData = (
             closure_direction: result.closure_direction || [],
             pointCount: result.survey_data?.row_count || 0
           };
+          // Calculated data is always saved
+          setIsSaved(true);
         } else {
           // Fetch interpolated data using the calculated survey ID from the result
           try {
             // The result.id is the calculated survey ID that we need for interpolation
             const calculatedSurveyId = result.id;
-            const interpResult = await surveysService.getInterpolation(calculatedSurveyId, resolution || 5);
+            const interpResult = await surveysService.getInterpolation(
+              calculatedSurveyId,
+              resolution || 5,
+              startMD,
+              endMD
+            );
 
             plotData = {
               md: interpResult.md_interpolated || [],
@@ -80,11 +91,13 @@ export const useSurveyPlotData = (
               northing: interpResult.northing_interpolated || [],
               tvd: interpResult.tvd_interpolated || [],
               dls: interpResult.dls_interpolated || [],
-              vertical_section: [],
-              closure_distance: [],
-              closure_direction: [],
+              vertical_section: interpResult.vertical_section_interpolated || [],
+              closure_distance: interpResult.closure_distance_interpolated || [],
+              closure_direction: interpResult.closure_direction_interpolated || [],
               pointCount: interpResult.point_count || 0
             };
+            // Set isSaved based on API response
+            setIsSaved(interpResult.is_saved === true);
           } catch (interpError) {
             // Fall back to calculated data if interpolation not available
             console.warn('Interpolation not available, falling back to calculated data', interpError);
@@ -101,6 +114,7 @@ export const useSurveyPlotData = (
               closure_direction: result.closure_direction || [],
               pointCount: result.survey_data?.row_count || 0
             };
+            setIsSaved(true); // Fallback to calculated, which is always saved
           }
         }
 
@@ -126,7 +140,7 @@ export const useSurveyPlotData = (
     };
 
     fetchData();
-  }, [surveyDataId, dataSource, resolution, refetchTrigger]);
+  }, [surveyDataId, dataSource, resolution, startMD, endMD, refetchTrigger]);
 
   const refetch = () => {
     setRefetchTrigger(prev => prev + 1);
@@ -137,6 +151,7 @@ export const useSurveyPlotData = (
     metadata,
     isLoading,
     error,
+    isSaved,
     refetch
   };
 };

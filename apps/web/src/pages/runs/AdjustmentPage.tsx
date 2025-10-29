@@ -25,17 +25,20 @@ import {
   ArrowBack as ArrowBackIcon,
   Tune as TuneIcon,
   Visibility as VisibilityIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { PageHeader } from '../../components/common/PageHeader';
 import { ErrorAlert } from '../../components/common/ErrorAlert';
 import { SkeletonLoader } from '../../components/common/SkeletonLoader';
+import { CreateAdjustmentDialog } from '../../components/adjustment/CreateAdjustmentDialog';
 import { useGetRunByIdQuery } from '../../stores/runsSlice';
 import { useComparisonHistory } from '../../hooks/useComparison';
 
 export const AdjustmentPage: React.FC = () => {
   const { id: runId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   // Fetch run details
   const { data: run, isLoading: runLoading, error: runError } = useGetRunByIdQuery(runId!);
@@ -81,6 +84,15 @@ export const AdjustmentPage: React.FC = () => {
             label: 'Back to Run',
             onClick: () => navigate(`/runs/${runId}`),
           }}
+          actions={
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateDialogOpen(true)}
+            >
+              Create New Adjustment
+            </Button>
+          }
         />
 
         {/* Info Card */}
@@ -222,6 +234,13 @@ export const AdjustmentPage: React.FC = () => {
           </Stack>
         )}
       </Box>
+
+      {/* Create Adjustment Dialog */}
+      <CreateAdjustmentDialog
+        open={createDialogOpen}
+        run={run}
+        onClose={() => setCreateDialogOpen(false)}
+      />
     </Container>
   );
 };

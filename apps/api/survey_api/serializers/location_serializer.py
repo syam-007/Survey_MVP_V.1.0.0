@@ -3,14 +3,17 @@ from survey_api.models import Location
 
 
 class LocationSerializer(serializers.ModelSerializer):
-    """Serializer for Location model"""
+    """Serializer for Location model with all calculated fields"""
 
     class Meta:
         model = Location
         fields = ('id', 'latitude', 'longitude', 'easting', 'northing',
                   'geodetic_system', 'map_zone', 'north_reference',
-                  'central_meridian', 'created_at')
-        read_only_fields = ('id', 'created_at')
+                  'central_meridian', 'grid_correction', 'w_t', 'min_w_t',
+                  'max_w_t', 'g_t', 'min_g_t', 'max_g_t', 'created_at')
+        read_only_fields = ('id', 'easting', 'northing', 'grid_correction',
+                            'w_t', 'min_w_t', 'max_w_t', 'g_t', 'min_g_t',
+                            'max_g_t', 'created_at')
 
     def validate_latitude(self, value):
         """Validate latitude is within valid range"""

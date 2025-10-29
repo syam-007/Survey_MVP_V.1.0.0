@@ -184,9 +184,60 @@ File Validation:
 * User decides which file is reference vs. comparison.
 * The system calculates delta.
 * Ratio factor: user-defined (default = 10).
+
+#### Comparison Results Display
+
+The comparison results are displayed in a comprehensive format with the following sections:
+
+1. **Survey Information Cards**
+   * Primary Survey card (blue background) showing file name, survey type, and row count
+   * Reference Survey card (purple background) showing file name, survey type, and row count
+
+2. **Comparison Result Data Table**
+   * Displayed before the Statistical Summary section
+   * Contains comprehensive data for all comparison points:
+     * MD (Measured Depth)
+     * Reference Inc/Azi (purple-tinted columns)
+     * Primary Inc/Azi (blue-tinted columns)
+     * Delta values (ΔX, ΔY, ΔZ, ΔHorizontal, ΔTotal, ΔInc, ΔAzi)
+   * **Color Coding System:**
+     * Position Deltas (ΔX, ΔY, ΔZ, ΔHorizontal, ΔTotal):
+       * Green: < 0.1m (Good deviation)
+       * Yellow: 0.1-0.3m (Medium deviation)
+       * Red: > 0.3m (High deviation)
+     * Angular Deltas (ΔInc, ΔAzi):
+       * Green: < 0.5° (Good deviation)
+       * Yellow: 0.5-1.5° (Medium deviation)
+       * Red: > 1.5° (High deviation)
+   * Sticky header and scrollable table (max height: 600px)
+   * Color legend displayed below the table
+
+3. **Statistical Summary**
+   * Key metrics cards showing:
+     * Total comparison points
+     * Maximum total deviation (m)
+     * Maximum horizontal deviation (m)
+     * Average total deviation (m)
+   * Position Deltas table (Max, Average, Std Deviation)
+   * Angular Deltas table (Max, Average, Std Deviation)
+   * Deviations at Key Depths (Start, 25%, 50%, 75%, End)
+
+4. **Comparison Visualizations (Tabbed Interface)**
+   * **Tab 1 - 3D Survey Comparison** (Default):
+     * Interactive 3D plot showing reference and primary survey trajectories
+     * Minimum height: 700px
+   * **Tab 2 - Position Deltas vs MD**:
+     * 2D plot showing ΔX, ΔY, ΔZ, ΔHorizontal, and ΔTotal vs Measured Depth
+     * Minimum height: 600px
+   * **Tab 3 - Angular Deltas vs MD**:
+     * 2D plot showing ΔInclination and ΔAzimuth vs Measured Depth
+     * Minimum height: 600px
+   * All tabs are scrollable to accommodate content
+
 * Outputs:
-  * 2D and 3D graphs.
-  * Results downloadable in Excel/CSV.
+  * Interactive comparison results page with color-coded data
+  * 2D and 3D graphs in tabbed interface
+  * Results downloadable in Excel/CSV format
 
 ### 5.8 Adjustment
 
@@ -235,9 +286,44 @@ Recalculation:
 ### 5.10 Exception for Type 1 (GTL)
 
 * If Survey Type 1 is selected, system allows Quality Check.
+
+#### GTL Quality Check Process
+
+1. **QA Upload and Calculation**
+   * User uploads GTL survey file for quality analysis
+   * System performs QA calculations using location and file data
+   * QA Delta Formula: `Location Value - File Value` (not File - Location)
+   * Results include delta calculations for W(t) and G(t) values
+
+2. **QA Results Display**
+   * Comprehensive QA data table showing:
+     * MD (Measured Depth)
+     * File W(t) and G(t) values (from uploaded file)
+     * Location W(t) and G(t) values (from run location data)
+     * Delta W(t) and Delta G(t) (Location - File)
+   * Color-coded delta cells:
+     * Green: Within acceptable tolerance
+     * Yellow: Medium deviation (requires attention)
+     * Red: High deviation (requires review)
+   * Statistical summary of QA results
+
+3. **QA Approval Workflow**
+   * After QA calculation, survey status is set to 'calculated'
+   * User can review QA results and either:
+     * Approve the survey → status changes to 'completed'
+     * Reject and request recalculation
+   * Only surveys with 'completed' status can proceed to comparison
+
+4. **Database Optimizations**
+   * Location W(t) and G(t) values are rounded to 1 decimal place at database level
+   * Ensures consistency between file values and location values
+   * Improves QA calculation accuracy
+
 * Outputs:
-  * Calculated data in Excel.
-  * Error model with graphs.
+  * Calculated QA data in Excel format
+  * Error model with graphs
+  * QA approval status tracking
+  * Color-coded QA data table for quick assessment
 
 ### 5.11 Reports
 

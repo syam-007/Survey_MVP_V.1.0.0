@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -69,9 +69,15 @@ export const DepthStep: React.FC<DepthStepProps> = ({
   // Watch all form fields and update parent on change
   const formData = watch();
 
+  // Use ref to store onChange to avoid infinite loop
+  const onChangeRef = useRef(onChange);
   useEffect(() => {
-    onChange(formData);
-  }, [formData, onChange]);
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
+    onChangeRef.current(formData);
+  }, [formData]);
 
   return (
     <>

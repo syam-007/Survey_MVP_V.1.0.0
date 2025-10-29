@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -15,8 +15,10 @@ import {
   InputAdornment,
 } from '@mui/material';
 import { CheckCircle as CheckIcon, Error as ErrorIcon } from '@mui/icons-material';
-import type { RunType, CreateRunInput } from '../../../types';
+import type { SurveyType, RunType, CreateRunInput } from '../../../types';
+import type { Well } from '../../../types/well.types';
 import runsService from '../../../services/runsService';
+import { WellAutocompleteWithCreate } from '../../wells/WellAutocompleteWithCreate';
 
 /**
  * Validation schema for Run Info step
@@ -30,10 +32,15 @@ const runInfoSchema = yup.object({
     .string()
     .required('Run name is required')
     .max(255, 'Run name cannot exceed 255 characters'),
+  survey_type: yup
+    .mixed<SurveyType>()
+    .oneOf(['GTL', 'Gyro', 'MWD', 'Unknown'])
+    .required('Survey type is required'),
   run_type: yup
     .mixed<RunType>()
-    .oneOf(['GTL', 'Gyro', 'MWD', 'Unknown'])
-    .required('Run type is required'),
+    .oneOf(['Memory', 'Surface Readout', 'Dummy', 'Test Stand'])
+    .nullable()
+    .notRequired(),
   well: yup
     .string()
     .uuid('Invalid well ID')
@@ -63,6 +70,7 @@ export const RunInfoStep: React.FC<RunInfoStepProps> = ({
     formState: { errors },
     setError,
     clearErrors,
+    setValue,
   } = useForm<Partial<CreateRunInput>>({
     resolver: yupResolver(runInfoSchema) as any,
     defaultValues: data,
@@ -75,14 +83,23 @@ export const RunInfoStep: React.FC<RunInfoStepProps> = ({
   const [runNumberExists, setRunNumberExists] = useState(false);
   const [runNameExists, setRunNameExists] = useState(false);
 
+  // Well selection state
+  const [selectedWell, setSelectedWell] = useState<Well | null>(null);
+
   // Watch all form fields and update parent on change
   const formData = watch();
   const runNumber = watch('run_number');
   const runName = watch('run_name');
 
+  // Use ref to store onChange to avoid infinite loop
+  const onChangeRef = useRef(onChange);
   useEffect(() => {
-    onChange(formData);
-  }, [formData, onChange]);
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
+    onChangeRef.current(formData);
+  }, [formData]);
 
   // Debounced validation for run_number
   useEffect(() => {
@@ -231,19 +248,20 @@ export const RunInfoStep: React.FC<RunInfoStepProps> = ({
         </Box>
       </Box>
 
-      {/* Run Type and Well - Side by side on larger screens */}
+      {/* Survey Type and Run Type - Side by side on larger screens */}
       <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', sm: 'row' } }}>
         <Box sx={{ flex: 1 }}>
-          <FormControl fullWidth required error={!!errors.run_type}>
-            <InputLabel id="run-type-label">Run Type</InputLabel>
+          <FormControl fullWidth required error={!!errors.survey_type}>
+            <InputLabel id="survey-type-label">Survey Type</InputLabel>
             <Controller
-              name="run_type"
+              name="survey_type"
               control={control}
               render={({ field }) => (
                 <Select
                   {...field}
-                  labelId="run-type-label"
-                  label="Run Type"
+                  value={field.value || ''}
+                  labelId="survey-type-label"
+                  label="Survey Type"
                 >
                   <MenuItem value="GTL">GTL</MenuItem>
                   <MenuItem value="Gyro">Gyro</MenuItem>
@@ -252,43 +270,55 @@ export const RunInfoStep: React.FC<RunInfoStepProps> = ({
                 </Select>
               )}
             />
-            {errors.run_type && (
-              <FormHelperText>{errors.run_type.message}</FormHelperText>
+            {errors.survey_type && (
+              <FormHelperText>{errors.survey_type.message}</FormHelperText>
             )}
           </FormControl>
         </Box>
 
         <Box sx={{ flex: 1 }}>
-          <FormControl fullWidth required error={!!errors.well}>
-            <InputLabel id="well-label">Well</InputLabel>
+          <FormControl fullWidth error={!!errors.run_type}>
+            <InputLabel id="run-type-label">Run Type</InputLabel>
             <Controller
-              name="well"
+              name="run_type"
               control={control}
               render={({ field }) => (
                 <Select
                   {...field}
-                  labelId="well-label"
-                  label="Well"
+                  value={field.value || ''}
+                  labelId="run-type-label"
+                  label="Run Type"
                 >
-                  {wells.length === 0 ? (
-                    <MenuItem value="" disabled>
-                      No wells available
-                    </MenuItem>
-                  ) : (
-                    wells.map((well) => (
-                      <MenuItem key={well.id} value={well.id}>
-                        {well.well_name}
-                      </MenuItem>
-                    ))
-                  )}
+                  <MenuItem value="">
+                    <em>None</em>
+                  </MenuItem>
+                  <MenuItem value="Memory">Memory</MenuItem>
+                  <MenuItem value="Surface Readout">Surface Readout</MenuItem>
+                  <MenuItem value="Dummy">Dummy</MenuItem>
+                  <MenuItem value="Test Stand">Test Stand</MenuItem>
                 </Select>
               )}
             />
-            {errors.well && (
-              <FormHelperText>{errors.well.message}</FormHelperText>
+            {errors.run_type && (
+              <FormHelperText>{errors.run_type.message}</FormHelperText>
             )}
           </FormControl>
         </Box>
+      </Box>
+
+      {/* Well */}
+      <Box>
+        <WellAutocompleteWithCreate
+          value={selectedWell}
+          onChange={(well) => {
+            setSelectedWell(well);
+            setValue('well', well?.id || '', { shouldValidate: true });
+          }}
+          error={!!errors.well}
+          helperText={errors.well?.message}
+          required
+          label="Well"
+        />
       </Box>
     </Stack>
   );

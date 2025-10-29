@@ -107,6 +107,7 @@ export const EditRunPage: React.FC = () => {
         initialValues={{
           run_number: run.run_number,
           run_name: run.run_name,
+          survey_type: run.survey_type,
           run_type: run.run_type,
           vertical_section: run.vertical_section,
           bhc_enabled: run.bhc_enabled,

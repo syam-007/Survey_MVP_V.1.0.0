@@ -87,33 +87,29 @@ class LocationService:
         """
         Calculate grid correction based on central meridian and coordinates.
 
+        Formula: grid_correction = (central_meridian - longitude) × sin(latitude)
+
         Args:
             central_meridian: Central meridian for the zone
             latitude: Latitude in decimal degrees
             longitude: Longitude in decimal degrees
 
         Returns:
-            Grid correction as Decimal
-
-        Note:
-            This is a simplified implementation. Full implementation would use
-            welleng library for accurate grid correction calculation.
+            Grid correction as Decimal (rounded to 7 decimal places)
         """
         try:
-            # Simplified grid correction calculation
-            # Real implementation would use welleng library
-
-            # Grid correction ≈ (λ - λ₀) × sin(φ) where:
-            # λ = longitude, λ₀ = central meridian, φ = latitude
-
-            lon_diff = float(longitude) - float(central_meridian)
-            lat_rad = float(latitude) * 0.017453292519943295  # degrees to radians
-
-            # Simplified formula
             import math
-            grid_correction_value = lon_diff * math.sin(lat_rad)
-            # Quantize to 6 decimal places (max_digits=10, decimal_places=6)
-            grid_correction = Decimal(str(grid_correction_value)).quantize(Decimal('0.000001'))
+
+            central_meridian_val = float(central_meridian)
+            latitude_val = float(latitude)
+            longitude_val = float(longitude)
+
+            # grid_correction = (central_meridian - longitude) × sin(latitude)
+            lat_rad = math.radians(latitude_val)
+            grid_correction_value = (central_meridian_val - longitude_val) * math.sin(lat_rad)
+
+            # Round to 6 decimal places to match model field precision
+            grid_correction = Decimal(str(round(grid_correction_value, 6)))
 
             logger.info(
                 f"Calculated grid correction: {grid_correction} "
@@ -131,46 +127,73 @@ class LocationService:
         latitude: Decimal,
         longitude: Decimal,
         easting: Decimal,
-        northing: Decimal
+        northing: Decimal,
+        ground_level_elevation: Decimal = None
     ) -> Dict[str, Decimal]:
         """
         Calculate grid convergence (g_t) and scale factor (w_t) values.
+
+        W_t Formula: 15.041 × cos(latitude_rad)
+        G_t Formula: [9.780327 × (1 + (0.0053024 × sin²(lat)) - (0.0000058 × sin²(2×lat)))]
+                     - ((3.086 × 10⁻⁶) × elevation) × 102
 
         Args:
             latitude: Latitude in decimal degrees
             longitude: Longitude in decimal degrees
             easting: UTM easting coordinate
             northing: UTM northing coordinate
+            ground_level_elevation: Ground level elevation (optional)
 
         Returns:
-            Dictionary with g_t, max_g_t, w_t, max_w_t values
-
-        Note:
-            This is a simplified implementation. Full implementation would use
-            welleng library for accurate calculations.
+            Dictionary with g_t, min_g_t, max_g_t, w_t, min_w_t, max_w_t values
         """
         try:
-            # Simplified calculations (placeholder for welleng integration)
-            # Real implementation would use welleng library methods
-
             import math
 
-            # Grid convergence approximation
-            lat_rad = float(latitude) * 0.017453292519943295
-            g_t_value = abs(math.sin(lat_rad) * 0.001)
-            # Quantize to 8 decimal places (max_digits=12, decimal_places=8)
-            g_t = Decimal(str(g_t_value)).quantize(Decimal('0.00000001'))
-            max_g_t_value = g_t_value * 1.2
-            max_g_t = Decimal(str(max_g_t_value)).quantize(Decimal('0.00000001'))
+            latitude_val = float(latitude)
+            lat_rad = math.radians(latitude_val)
 
-            # Scale factor approximation (typically close to 1.0)
-            w_t = Decimal('0.9996')  # Standard UTM scale factor
-            max_w_t = Decimal('1.0004')  # Max scale factor
+            # Calculate W_t: 15.041 × cos(latitude_rad)
+            # Round to 1 decimal place for storage
+            w_t_value = 15.041 * math.cos(lat_rad)
+            w_t = Decimal(str(round(w_t_value, 1)))
+
+            # min_w_t = w_t - 3
+            min_w_t = Decimal(str(round(w_t_value - 3, 1)))
+
+            # max_w_t = w_t + 3
+            max_w_t = Decimal(str(round(w_t_value + 3, 1)))
+
+            # Calculate G_t if ground_level_elevation is provided
+            if ground_level_elevation is not None:
+                two_lat_rad = math.radians(2 * latitude_val)
+                elevation = float(ground_level_elevation)
+
+                g_t_value = (
+                    (9.780327 * (1 + (0.0053024 * (math.sin(lat_rad) ** 2)) -
+                    (0.0000058 * (math.sin(two_lat_rad) ** 2)))) -
+                    ((3.086 * 10 ** -6) * elevation)
+                ) * 102
+
+                # Round to 1 decimal place for storage
+                g_t = Decimal(str(round(g_t_value, 1)))
+                min_g_t = Decimal(str(round(g_t_value - 10, 1)))
+                max_g_t = Decimal(str(round(g_t_value + 10, 1)))
+            else:
+                # If no elevation provided, use simplified calculation
+                g_t_value = 9.780327 * (1 + (0.0053024 * (math.sin(lat_rad) ** 2)) -
+                                       (0.0000058 * (math.sin(math.radians(2 * latitude_val)) ** 2))) * 102
+                # Round to 1 decimal place for storage
+                g_t = Decimal(str(round(g_t_value, 1)))
+                min_g_t = Decimal(str(round(g_t_value - 10, 1)))
+                max_g_t = Decimal(str(round(g_t_value + 10, 1)))
 
             result = {
                 'g_t': g_t,
+                'min_g_t': min_g_t,
                 'max_g_t': max_g_t,
                 'w_t': w_t,
+                'min_w_t': min_w_t,
                 'max_w_t': max_w_t
             }
 
@@ -203,13 +226,16 @@ class LocationService:
             logger.info(f"Initial latitude: {latitude}, longitude: {longitude}")
 
             # If latitude/longitude not provided, calculate from DMS
+            # Formula: degrees + minutes/60 + seconds/3600
             if latitude is None and data.get('latitude_degrees') is not None:
                 lat_deg = data.get('latitude_degrees')
                 lat_min = data.get('latitude_minutes', 0) if data.get('latitude_minutes') is not None else 0
                 lat_sec = data.get('latitude_seconds', 0) if data.get('latitude_seconds') is not None else 0
                 lat_sec = float(lat_sec)
-                # Calculate and quantize to 8 decimal places to match model (max_digits=10, decimal_places=8)
-                latitude = Decimal(str(lat_deg + (((lat_sec / 60) + lat_min) / 60))).quantize(Decimal('0.00000001'))
+                # Calculate: degrees + minutes/60 + seconds/3600
+                latitude_value = lat_deg + lat_min / 60 + lat_sec / 3600
+                # Round to 8 decimal places
+                latitude = Decimal(str(round(latitude_value, 8)))
                 data['latitude'] = latitude
                 logger.info(f"Converted DMS to decimal latitude: {lat_deg}° {lat_min}' {lat_sec}\" = {latitude}")
 
@@ -218,8 +244,10 @@ class LocationService:
                 lon_min = data.get('longitude_minutes', 0) if data.get('longitude_minutes') is not None else 0
                 lon_sec = data.get('longitude_seconds', 0) if data.get('longitude_seconds') is not None else 0
                 lon_sec = float(lon_sec)
-                # Calculate and quantize to 8 decimal places to match model (max_digits=11, decimal_places=8)
-                longitude = Decimal(str(lon_deg + (((lon_sec / 60) + lon_min) / 60))).quantize(Decimal('0.00000001'))
+                # Calculate: degrees + minutes/60 + seconds/3600
+                longitude_value = lon_deg + lon_min / 60 + lon_sec / 3600
+                # Round to 8 decimal places
+                longitude = Decimal(str(round(longitude_value, 8)))
                 data['longitude'] = longitude
                 logger.info(f"Converted DMS to decimal longitude: {lon_deg}° {lon_min}' {lon_sec}\" = {longitude}")
 
@@ -233,12 +261,11 @@ class LocationService:
             map_zone = data.get('map_zone')
             central_meridian = data.get('central_meridian', Decimal('0.0'))  # Default to 0.0
 
-            logger.info(f"Calculating UTM coordinates for lat={latitude}, lon={longitude}")
+            # Use user-provided easting and northing (required fields)
+            easting = data.get('easting')
+            northing = data.get('northing')
 
-            # Calculate UTM coordinates
-            easting, northing = cls.calculate_utm_coordinates(
-                latitude, longitude, geodetic_system, map_zone
-            )
+            logger.info(f"Using user-provided UTM coordinates: E={easting}, N={northing}")
 
             # Calculate grid correction
             grid_correction = cls.calculate_grid_correction(
@@ -255,8 +282,10 @@ class LocationService:
             data['northing'] = northing
             data['grid_correction'] = grid_correction
             data['g_t'] = g_t_w_t['g_t']
+            data['min_g_t'] = g_t_w_t['min_g_t']
             data['max_g_t'] = g_t_w_t['max_g_t']
             data['w_t'] = g_t_w_t['w_t']
+            data['min_w_t'] = g_t_w_t['min_w_t']
             data['max_w_t'] = g_t_w_t['max_w_t']
 
             logger.info("Successfully calculated all location fields")

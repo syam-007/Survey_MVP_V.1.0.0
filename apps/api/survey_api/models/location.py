@@ -205,6 +205,14 @@ class Location(models.Model):
         help_text='Grid convergence at point (calculated)'
     )
 
+    min_g_t = models.DecimalField(
+        max_digits=12,
+        decimal_places=8,
+        null=True,
+        blank=True,
+        help_text='Minimum grid convergence (calculated)'
+    )
+
     max_g_t = models.DecimalField(
         max_digits=12,
         decimal_places=8,
@@ -219,6 +227,14 @@ class Location(models.Model):
         null=True,
         blank=True,
         help_text='Scale factor at point (calculated)'
+    )
+
+    min_w_t = models.DecimalField(
+        max_digits=12,
+        decimal_places=8,
+        null=True,
+        blank=True,
+        help_text='Minimum scale factor (calculated)'
     )
 
     max_w_t = models.DecimalField(
@@ -283,7 +299,7 @@ class Location(models.Model):
     def get_north_coordinate(self):
         """
         Calculate north coordinate (latitude) from DMS components.
-        Formula: degrees + (minutes + seconds/60) / 60
+        Formula: degrees + minutes/60 + seconds/3600
         Returns 8 decimal places precision.
         """
         if self.latitude_degrees is None:
@@ -292,14 +308,14 @@ class Location(models.Model):
         minutes = self.latitude_minutes or 0
         seconds = float(self.latitude_seconds or 0)
 
-        north_coordinate = self.latitude_degrees + (((seconds / 60) + minutes) / 60)
+        north_coordinate = self.latitude_degrees + minutes / 60 + seconds / 3600
         return float(f"{north_coordinate:.8f}")
 
     @property
     def get_east_coordinate(self):
         """
         Calculate east coordinate (longitude) from DMS components.
-        Formula: degrees + (minutes + seconds/60) / 60
+        Formula: degrees + minutes/60 + seconds/3600
         Returns 8 decimal places precision.
         """
         if self.longitude_degrees is None:
@@ -308,5 +324,5 @@ class Location(models.Model):
         minutes = self.longitude_minutes or 0
         seconds = float(self.longitude_seconds or 0)
 
-        east_coordinate = self.longitude_degrees + (((seconds / 60) + minutes) / 60)
+        east_coordinate = self.longitude_degrees + minutes / 60 + seconds / 3600
         return float(f"{east_coordinate:.8f}")

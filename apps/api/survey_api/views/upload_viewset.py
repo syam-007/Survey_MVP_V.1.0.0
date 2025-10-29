@@ -12,8 +12,9 @@ import logging
 import os
 
 from survey_api.serializers import FileUploadSerializer, SurveyDataSerializer
-from survey_api.models import Run, SurveyFile, SurveyData
+from survey_api.models import Run, SurveyFile, SurveyData, QualityCheck
 from survey_api.services.file_parser_service import FileParserService, FileParsingError
+from survey_api.services.qa_service import QAService
 from survey_api.utils.survey_validators import SurveyFileValidator
 from survey_api.exceptions import FileValidationError
 
@@ -145,15 +146,29 @@ def upload_survey_file(request):
             survey_type
         )
 
-        # Create SurveyData record
+        # Prepend tie-on values to the survey data
+        # This ensures the tie-on point appears as the first row in the results
+        # Use actual tie-on MD, INC, and AZI values for accurate calculations
+        tie_on = run.tieon
+        md_data_with_tieon = [float(tie_on.md)] + parsed_data['md_data']
+        inc_data_with_tieon = [float(tie_on.inc)] + parsed_data['inc_data']
+        azi_data_with_tieon = [float(tie_on.azi)] + parsed_data['azi_data']
+
+        # Update row count to include tie-on point
+        row_count_with_tieon = len(md_data_with_tieon)
+
+        logger.debug(f"Prepended tie-on point: MD={tie_on.md}, INC={tie_on.inc}, AZI={tie_on.azi}")
+        logger.debug(f"Row count: {parsed_data['row_count']} -> {row_count_with_tieon} (including tie-on)")
+
+        # Create SurveyData record with tie-on prepended
         survey_data = SurveyData.objects.create(
             survey_file=survey_file,
-            md_data=parsed_data['md_data'],
-            inc_data=parsed_data['inc_data'],
-            azi_data=parsed_data['azi_data'],
+            md_data=md_data_with_tieon,
+            inc_data=inc_data_with_tieon,
+            azi_data=azi_data_with_tieon,
             wt_data=parsed_data.get('wt_data'),
             gt_data=parsed_data.get('gt_data'),
-            row_count=parsed_data['row_count'],
+            row_count=row_count_with_tieon,
             validation_status='valid' if is_valid else 'invalid',
             validation_errors=validation_errors if not is_valid else None
         )
@@ -170,6 +185,85 @@ def upload_survey_file(request):
                 f"File validation failed with {len(validation_errors)} errors. "
                 f"Created SurveyData: {survey_data.id} (Proceeding anyway)"
             )
+
+        # Check if this is a GTL survey that requires QA
+        qa_data = None
+        is_gtl_survey = survey_type == 'Type 1 - GTL'
+
+        if is_gtl_survey:
+            logger.info(f"GTL survey detected - performing QA calculations")
+            try:
+                # Get location G(t) and W(t) from run's well location
+                location = run.well.location if hasattr(run, 'well') and run.well and hasattr(run.well, 'location') else None
+                if not location:
+                    logger.error(f"Cannot perform QA - Location data not found for Run {run_id}")
+                    return Response(
+                        {
+                            "error": "Location data required for GTL QA",
+                            "details": ["GTL surveys require location G(t) and W(t) values for quality assurance"]
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                location_g_t = float(location.g_t) if location.g_t else 0.0
+                location_w_t = float(location.w_t) if location.w_t else 0.0
+
+                # Perform QA calculations (without tie-on prepended data)
+                qa_metrics = QAService.calculate_qa_metrics(
+                    md_data=parsed_data['md_data'],
+                    inc_data=parsed_data['inc_data'],
+                    azi_data=parsed_data['azi_data'],
+                    gt_data=parsed_data.get('gt_data', []),
+                    wt_data=parsed_data.get('wt_data', []),
+                    location_g_t=location_g_t,
+                    location_w_t=location_w_t
+                )
+
+                # Create QualityCheck record with pending status
+                quality_check = QualityCheck.objects.create(
+                    run=run,
+                    survey_data=survey_data,
+                    file_name=uploaded_file.name,
+                    md_data=parsed_data['md_data'],
+                    inc_data=parsed_data['inc_data'],
+                    azi_data=parsed_data['azi_data'],
+                    gt_data=parsed_data.get('gt_data', []),
+                    wt_data=parsed_data.get('wt_data', []),
+                    g_t_difference_data=qa_metrics['g_t_difference_data'],
+                    w_t_difference_data=qa_metrics['w_t_difference_data'],
+                    g_t_status_data=qa_metrics['g_t_status_data'],
+                    w_t_status_data=qa_metrics['w_t_status_data'],
+                    overall_status_data=qa_metrics['overall_status_data'],
+                    total_g_t_difference=qa_metrics['total_g_t_difference'],
+                    total_g_t_difference_pass=qa_metrics['total_g_t_difference_pass'],
+                    total_w_t_difference=qa_metrics['total_w_t_difference'],
+                    total_w_t_difference_pass=qa_metrics['total_w_t_difference_pass'],
+                    g_t_percentage=qa_metrics['g_t_percentage'],
+                    w_t_percentage=qa_metrics['w_t_percentage'],
+                    pass_count=qa_metrics['pass_count'],
+                    remove_count=qa_metrics['remove_count'],
+                    status='pending'
+                )
+
+                logger.info(f"QA calculations completed - QualityCheck ID: {quality_check.id}")
+
+                # Prepare QA data for response
+                qa_data = {
+                    "qa_required": True,
+                    "qa_id": str(quality_check.id),
+                    "summary": {
+                        "total_stations": len(parsed_data['md_data']),
+                        "pass_count": qa_metrics['pass_count'],
+                        "remove_count": qa_metrics['remove_count'],
+                        "g_t_percentage": float(qa_metrics['g_t_percentage']),
+                        "w_t_percentage": float(qa_metrics['w_t_percentage'])
+                    }
+                }
+
+            except Exception as e:
+                logger.exception(f"Error performing QA calculations: {e}")
+                # Don't fail the upload, just log the error
+                qa_data = {"qa_required": False, "qa_error": str(e)}
 
         # Prepare response
         response_data = {
@@ -188,6 +282,10 @@ def upload_survey_file(request):
             },
             "message": "File uploaded successfully" if is_valid else "File uploaded with validation warnings"
         }
+
+        # Add QA data if this is a GTL survey
+        if qa_data:
+            response_data["qa_data"] = qa_data
 
         # Add validation warnings if any (but don't fail the request)
         if not is_valid:

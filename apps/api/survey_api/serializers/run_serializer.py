@@ -28,7 +28,7 @@ class RunSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Run
-        fields = ('id', 'run_number', 'run_name', 'run_type', 'vertical_section',
+        fields = ('id', 'run_number', 'run_name', 'survey_type', 'run_type', 'vertical_section',
                   'bhc_enabled', 'proposal_direction', 'grid_correction',
                   'well', 'location', 'depth', 'tieon', 'user', 'survey_files', 'survey_files_count',
                   'has_tieon', 'created_at', 'updated_at')
@@ -60,7 +60,7 @@ class RunCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Run
-        fields = ('id', 'run_number', 'run_name', 'run_type', 'vertical_section',
+        fields = ('id', 'run_number', 'run_name', 'survey_type', 'run_type', 'vertical_section',
                   'bhc_enabled', 'proposal_direction', 'grid_correction',
                   'well', 'created_at', 'updated_at')
         read_only_fields = ('id', 'created_at', 'updated_at')

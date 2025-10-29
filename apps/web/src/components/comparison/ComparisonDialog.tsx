@@ -20,8 +20,6 @@ import {
   Stack,
   Paper,
   IconButton,
-  Tabs,
-  Tab,
   Divider,
   TextField,
   LinearProgress,
@@ -41,76 +39,41 @@ interface ComparisonDialogProps {
   onClose: () => void;
 }
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`comparison-tabpanel-${index}`}
-      aria-labelledby={`comparison-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
-}
-
 export const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
   open,
   run,
   onClose,
 }) => {
   const navigate = useNavigate();
-  const [tabValue, setTabValue] = useState(0);
 
-  // Select existing files tab state
+  // State
   const [selectedPrimary, setSelectedPrimary] = useState<string>('');
   const [selectedReference, setSelectedReference] = useState<string>('');
-  const [ratioFactor, setRatioFactor] = useState<number>(5);
-
-  // Upload new files tab state
-  const [primaryFile, setPrimaryFile] = useState<File | null>(null);
+  const [useUploadForReference, setUseUploadForReference] = useState(false);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
-  const [primaryType, setPrimaryType] = useState<string>('');
-  const [referenceType, setReferenceType] = useState<string>('');
+  const [ratioFactor, setRatioFactor] = useState<number>(5);
   const [isUploading, setIsUploading] = useState(false);
 
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
-
-  // Get completed surveys
+  // Get completed surveys - all completed surveys can be used as primary or reference
   const completedSurveys = run?.survey_files?.filter(
     (file) => file.processing_status === 'completed' && file.survey_data_id
   ) || [];
 
-  const primarySurveys = completedSurveys.filter((file) => file.survey_role === 'primary');
-  const referenceSurveys = completedSurveys.filter((file) => file.survey_role === 'reference');
-
-  // Primary file dropzone
-  const onDropPrimary = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      setPrimaryFile(acceptedFiles[0]);
+  // Automatically determine survey type from survey_type
+  const getSurveyType = () => {
+    switch (run.survey_type) {
+      case 'GTL':
+        return 'Type 1 - GTL';
+      case 'Gyro':
+        return 'Type 2 - Gyro';
+      case 'MWD':
+        return 'Type 3 - MWD';
+      default:
+        return 'Type 1 - GTL';
     }
-  }, []);
+  };
 
-  const { getRootProps: getPrimaryRootProps, getInputProps: getPrimaryInputProps, isDragActive: isPrimaryDragActive } = useDropzone({
-    onDrop: onDropPrimary,
-    accept: {
-      'text/csv': ['.csv'],
-      'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-    },
-    multiple: false,
-    disabled: isUploading,
-  });
+  const surveyType = getSurveyType();
 
   // Reference file dropzone
   const onDropReference = useCallback((acceptedFiles: File[]) => {
@@ -130,83 +93,68 @@ export const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
     disabled: isUploading,
   });
 
-  const handleCompareExisting = () => {
-    if (!selectedPrimary || !selectedReference) return;
+  const handleCompare = async () => {
+    if (!selectedPrimary) return;
 
-    // Navigate to comparison page with auto-trigger
-    navigate(`/runs/${run.id}/comparison?primary=${selectedPrimary}&reference=${selectedReference}&auto=true`);
-    handleClose();
-  };
+    // If using upload for reference, upload the file first
+    if (useUploadForReference) {
+      if (!referenceFile) return;
 
-  const handleUploadAndCompare = async () => {
-    if (!primaryFile || !referenceFile || !primaryType || !referenceType) return;
+      setIsUploading(true);
 
-    setIsUploading(true);
+      try {
+        // Upload reference survey
+        const referenceFormData = new FormData();
+        referenceFormData.append('file', referenceFile);
+        referenceFormData.append('run_id', run.id);
+        referenceFormData.append('survey_type', surveyType);
+        referenceFormData.append('survey_role', 'primary');
 
-    try {
-      // Upload primary survey
-      const primaryFormData = new FormData();
-      primaryFormData.append('file', primaryFile);
-      primaryFormData.append('run_id', run.id);
-      primaryFormData.append('survey_type', primaryType);
-      primaryFormData.append('survey_role', 'primary');
+        const referenceResponse = await fetch('http://localhost:8000/api/v1/surveys/upload/', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          },
+          body: referenceFormData,
+        });
 
-      const primaryResponse = await fetch('http://localhost:8000/api/v1/surveys/upload/', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
-        body: primaryFormData,
-      });
+        if (!referenceResponse.ok) throw new Error('Failed to upload reference survey');
+        const referenceData = await referenceResponse.json();
 
-      if (!primaryResponse.ok) throw new Error('Failed to upload primary survey');
-      const primaryData = await primaryResponse.json();
+        // Get survey_data_id from response
+        const referenceSurveyId = referenceData.id || referenceData.survey_data?.id;
 
-      // Upload reference survey
-      const referenceFormData = new FormData();
-      referenceFormData.append('file', referenceFile);
-      referenceFormData.append('run_id', run.id);
-      referenceFormData.append('survey_type', referenceType);
-      referenceFormData.append('survey_role', 'reference');
-
-      const referenceResponse = await fetch('http://localhost:8000/api/v1/surveys/upload/', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
-        body: referenceFormData,
-      });
-
-      if (!referenceResponse.ok) throw new Error('Failed to upload reference survey');
-      const referenceData = await referenceResponse.json();
-
-      // Navigate to comparison page with auto-trigger
-      navigate(`/runs/${run.id}/comparison?primary=${primaryData.survey_data_id}&reference=${referenceData.survey_data_id}&auto=true`);
+        // Navigate to comparison page with auto-trigger
+        navigate(`/runs/${run.id}/comparison?primary=${selectedPrimary}&reference=${referenceSurveyId}&auto=true`);
+        handleClose();
+      } catch (error) {
+        console.error('Upload reference survey failed:', error);
+        alert('Failed to upload reference survey. Please try again.');
+      } finally {
+        setIsUploading(false);
+      }
+    } else {
+      // Use selected reference survey
+      if (!selectedReference) return;
+      navigate(`/runs/${run.id}/comparison?primary=${selectedPrimary}&reference=${selectedReference}&auto=true`);
       handleClose();
-    } catch (error) {
-      console.error('Upload and compare failed:', error);
-      alert('Failed to upload surveys. Please try again.');
-    } finally {
-      setIsUploading(false);
     }
   };
 
   const handleClose = () => {
     if (isUploading) return;
 
-    setTabValue(0);
     setSelectedPrimary('');
     setSelectedReference('');
-    setRatioFactor(5);
-    setPrimaryFile(null);
+    setUseUploadForReference(false);
     setReferenceFile(null);
-    setPrimaryType('');
-    setReferenceType('');
+    setRatioFactor(5);
     onClose();
   };
 
-  const canCompareExisting = selectedPrimary && selectedReference;
-  const canUploadAndCompare = primaryFile && referenceFile && primaryType && referenceType;
+  const canCompare = selectedPrimary && (
+    useUploadForReference ? referenceFile : (selectedReference && selectedPrimary !== selectedReference)
+  );
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
@@ -222,171 +170,134 @@ export const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
       <DialogContent>
         <Stack spacing={3}>
           <Alert severity="info">
-            Select two existing surveys or upload new files to compare.
+            Select a primary survey from this run and choose a reference survey (either existing or upload new).
+            <br />
+            <Typography variant="caption" component="div" sx={{ mt: 1 }}>
+              Survey Type: <strong>{surveyType}</strong> (auto-detected from run type)
+            </Typography>
           </Alert>
 
-          <Tabs value={tabValue} onChange={handleTabChange}>
-            <Tab label="Select Existing Files" />
-            <Tab label="Upload New Files" />
-          </Tabs>
+          {completedSurveys.length === 0 ? (
+            <Alert severity="warning">
+              No completed surveys available. Please upload a survey first.
+            </Alert>
+          ) : null}
 
-          {/* Tab 1: Select Existing Files */}
-          <TabPanel value={tabValue} index={0}>
-            <Stack spacing={3}>
-              {primarySurveys.length === 0 || referenceSurveys.length === 0 ? (
-                <Alert severity="warning">
-                  {primarySurveys.length === 0 && 'No primary surveys available. '}
-                  {referenceSurveys.length === 0 && 'No reference surveys available. '}
-                  Please upload surveys first or use the "Upload New Files" tab.
-                </Alert>
-              ) : null}
-
-              <FormControl fullWidth disabled={isUploading || primarySurveys.length === 0}>
-                <InputLabel>Primary Survey</InputLabel>
-                <Select
-                  value={selectedPrimary}
-                  onChange={(e) => setSelectedPrimary(e.target.value)}
-                  label="Primary Survey"
+          <FormControl fullWidth disabled={isUploading || completedSurveys.length === 0}>
+            <InputLabel>Primary Survey</InputLabel>
+            <Select
+              value={selectedPrimary}
+              onChange={(e) => setSelectedPrimary(e.target.value)}
+              label="Primary Survey"
+            >
+              {completedSurveys.map((survey) => (
+                <MenuItem
+                  key={survey.survey_data_id}
+                  value={survey.survey_data_id}
                 >
-                  {primarySurveys.map((survey) => (
-                    <MenuItem key={survey.survey_data_id} value={survey.survey_data_id}>
-                      {survey.file_name} - {survey.survey_type}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                  {survey.filename} - {survey.survey_type}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-              <FormControl fullWidth disabled={isUploading || referenceSurveys.length === 0}>
+          <Divider>
+            <Typography variant="caption" color="text.secondary">
+              Reference Survey
+            </Typography>
+          </Divider>
+
+          <Box>
+            <Stack direction="row" spacing={2} mb={2}>
+              <Button
+                variant={!useUploadForReference ? 'contained' : 'outlined'}
+                onClick={() => {
+                  setUseUploadForReference(false);
+                  setReferenceFile(null);
+                }}
+                disabled={isUploading}
+                fullWidth
+              >
+                Select Existing
+              </Button>
+              {/* <Button
+                variant={useUploadForReference ? 'contained' : 'outlined'}
+                onClick={() => {
+                  setUseUploadForReference(true);
+                  setSelectedReference('');
+                }}
+                disabled={isUploading}
+                fullWidth
+              >
+                Upload New
+              </Button> */}
+            </Stack>
+
+            {!useUploadForReference ? (
+              <FormControl fullWidth disabled={isUploading || completedSurveys.length === 0}>
                 <InputLabel>Reference Survey</InputLabel>
                 <Select
                   value={selectedReference}
                   onChange={(e) => setSelectedReference(e.target.value)}
                   label="Reference Survey"
                 >
-                  {referenceSurveys.map((survey) => (
-                    <MenuItem key={survey.survey_data_id} value={survey.survey_data_id}>
-                      {survey.file_name} - {survey.survey_type}
+                  {completedSurveys.map((survey) => (
+                    <MenuItem
+                      key={survey.survey_data_id}
+                      value={survey.survey_data_id}
+                      disabled={survey.survey_data_id === selectedPrimary}
+                    >
+                      {survey.filename} - {survey.survey_type}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
-
-              <FormControl fullWidth disabled={isUploading}>
-                <TextField
-                  label="Ratio Factor"
-                  type="number"
-                  value={ratioFactor}
-                  onChange={(e) => setRatioFactor(Number(e.target.value))}
-                  inputProps={{ min: 1, max: 20, step: 1 }}
-                  helperText="Delta analysis ratio factor (1-20)"
-                />
-              </FormControl>
-            </Stack>
-          </TabPanel>
-
-          {/* Tab 2: Upload New Files */}
-          <TabPanel value={tabValue} index={1}>
-            <Stack spacing={3}>
-              <Box>
-                <Typography variant="subtitle2" gutterBottom fontWeight="medium">
-                  Primary Survey
+            ) : (
+              <Paper
+                {...getReferenceRootProps()}
+                elevation={0}
+                sx={{
+                  p: 3,
+                  border: 2,
+                  borderStyle: 'dashed',
+                  borderColor: isReferenceDragActive ? 'primary.main' : 'divider',
+                  bgcolor: isReferenceDragActive ? 'action.hover' : 'background.paper',
+                  cursor: isUploading ? 'not-allowed' : 'pointer',
+                  textAlign: 'center',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    borderColor: 'primary.main',
+                    bgcolor: 'action.hover',
+                  },
+                }}
+              >
+                <input {...getReferenceInputProps()} />
+                <CloudUploadIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="body1" gutterBottom>
+                  {referenceFile ? referenceFile.name : 'Drop reference survey file or click to select'}
                 </Typography>
-                <Paper
-                  {...getPrimaryRootProps()}
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    border: 2,
-                    borderStyle: 'dashed',
-                    borderColor: isPrimaryDragActive ? 'primary.main' : 'divider',
-                    bgcolor: isPrimaryDragActive ? 'action.hover' : 'background.paper',
-                    cursor: isUploading ? 'not-allowed' : 'pointer',
-                    textAlign: 'center',
-                    transition: 'all 0.2s',
-                    '&:hover': {
-                      borderColor: 'primary.main',
-                      bgcolor: 'action.hover',
-                    },
-                  }}
-                >
-                  <input {...getPrimaryInputProps()} />
-                  <CloudUploadIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
-                  <Typography variant="body2">
-                    {primaryFile ? primaryFile.name : 'Drop primary survey file or click to select'}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    CSV, XLS, XLSX
-                  </Typography>
-                </Paper>
-                <FormControl fullWidth sx={{ mt: 1 }} disabled={isUploading || !primaryFile}>
-                  <InputLabel>Survey Type</InputLabel>
-                  <Select
-                    value={primaryType}
-                    onChange={(e) => setPrimaryType(e.target.value)}
-                    label="Survey Type"
-                    size="small"
-                  >
-                    <MenuItem value="GTL">GTL (Gyro Tool Log)</MenuItem>
-                    <MenuItem value="Gyro">Gyro</MenuItem>
-                    <MenuItem value="MWD">MWD (Measurement While Drilling)</MenuItem>
-                  </Select>
-                </FormControl>
-              </Box>
-
-              <Divider />
-
-              <Box>
-                <Typography variant="subtitle2" gutterBottom fontWeight="medium">
-                  Reference Survey
+                <Typography variant="caption" color="text.secondary">
+                  Supported formats: CSV, XLS, XLSX
                 </Typography>
-                <Paper
-                  {...getReferenceRootProps()}
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    border: 2,
-                    borderStyle: 'dashed',
-                    borderColor: isReferenceDragActive ? 'primary.main' : 'divider',
-                    bgcolor: isReferenceDragActive ? 'action.hover' : 'background.paper',
-                    cursor: isUploading ? 'not-allowed' : 'pointer',
-                    textAlign: 'center',
-                    transition: 'all 0.2s',
-                    '&:hover': {
-                      borderColor: 'primary.main',
-                      bgcolor: 'action.hover',
-                    },
-                  }}
-                >
-                  <input {...getReferenceInputProps()} />
-                  <CloudUploadIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
-                  <Typography variant="body2">
-                    {referenceFile ? referenceFile.name : 'Drop reference survey file or click to select'}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    CSV, XLS, XLSX
-                  </Typography>
-                </Paper>
-                <FormControl fullWidth sx={{ mt: 1 }} disabled={isUploading || !referenceFile}>
-                  <InputLabel>Survey Type</InputLabel>
-                  <Select
-                    value={referenceType}
-                    onChange={(e) => setReferenceType(e.target.value)}
-                    label="Survey Type"
-                    size="small"
-                  >
-                    <MenuItem value="GTL">GTL (Gyro Tool Log)</MenuItem>
-                    <MenuItem value="Gyro">Gyro</MenuItem>
-                    <MenuItem value="MWD">MWD (Measurement While Drilling)</MenuItem>
-                  </Select>
-                </FormControl>
-              </Box>
-            </Stack>
-          </TabPanel>
+              </Paper>
+            )}
+          </Box>
+
+          <FormControl fullWidth disabled={isUploading}>
+            <TextField
+              label="Ratio Factor"
+              type="number"
+              value={ratioFactor}
+              onChange={(e) => setRatioFactor(Number(e.target.value))}
+              inputProps={{ min: 1, max: 20, step: 1 }}
+              helperText="Delta analysis ratio factor (1-20)"
+            />
+          </FormControl>
 
           {isUploading && (
             <Box>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                Uploading surveys and processing...
+                Uploading reference survey and processing...
               </Typography>
               <LinearProgress />
             </Box>
@@ -398,25 +309,14 @@ export const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
         <Button onClick={handleClose} disabled={isUploading}>
           Cancel
         </Button>
-        {tabValue === 0 ? (
-          <Button
-            variant="contained"
-            onClick={handleCompareExisting}
-            disabled={!canCompareExisting || isUploading}
-            startIcon={<CompareArrowsIcon />}
-          >
-            Compare
-          </Button>
-        ) : (
-          <Button
-            variant="contained"
-            onClick={handleUploadAndCompare}
-            disabled={!canUploadAndCompare || isUploading}
-            startIcon={isUploading ? null : <CloudUploadIcon />}
-          >
-            {isUploading ? 'Uploading...' : 'Upload & Compare'}
-          </Button>
-        )}
+        <Button
+          variant="contained"
+          onClick={handleCompare}
+          disabled={!canCompare || isUploading}
+          startIcon={isUploading ? null : <CompareArrowsIcon />}
+        >
+          {isUploading ? 'Uploading...' : 'Compare'}
+        </Button>
       </DialogActions>
     </Dialog>
   );

@@ -94,9 +94,10 @@ export const WellListPage: React.FC = () => {
 
   // Handle page size change
   const handlePageSizeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
     setFilters((prev) => ({
       ...prev,
-      page_size: parseInt(event.target.value, 10),
+      page_size: value === '-1' ? data?.count || 1000 : parseInt(value, 10),
       page: 1,
     }));
   };
@@ -290,7 +291,7 @@ export const WellListPage: React.FC = () => {
             onPageChange={handlePageChange}
             rowsPerPage={filters.page_size || 20}
             onRowsPerPageChange={handlePageSizeChange}
-            rowsPerPageOptions={[10, 20, 50, 100]}
+            rowsPerPageOptions={[10, 20, 50, 100, { label: 'All', value: -1 }]}
           />
         </Paper>
       ) : (

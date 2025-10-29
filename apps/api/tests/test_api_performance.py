@@ -59,7 +59,7 @@ class APIPerformanceTestCase(TestCase):
             wells.append(well)
 
         cls.wells = Well.objects.bulk_create(wells, batch_size=100)
-        print(f"✓ Created {len(cls.wells)} wells")
+        print(f"Created {len(cls.wells)} wells")
 
         # Create 10,000 runs in batches
         print("Creating 10,000 test runs (this may take 1-2 minutes)...")
@@ -82,10 +82,10 @@ class APIPerformanceTestCase(TestCase):
                 runs.append(run)
 
             Run.all_objects.bulk_create(runs, batch_size=batch_size)
-            print(f"  ✓ Batch {batch_num + 1}/10 complete ({(batch_num + 1) * batch_size} runs)")
+            print(f"  Batch {batch_num + 1}/10 complete ({(batch_num + 1) * batch_size} runs)")
 
         cls.total_runs = Run.all_objects.count()
-        print(f"✓ Created {cls.total_runs} total runs")
+        print(f"Created {cls.total_runs} total runs")
         print("="*70)
         print("SETUP COMPLETE - Starting performance tests...")
         print("="*70 + "\n")

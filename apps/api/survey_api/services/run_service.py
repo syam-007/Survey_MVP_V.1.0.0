@@ -26,7 +26,7 @@ class RunService:
             QuerySet of Run objects with select_related
         """
         queryset = Run.objects.select_related(
-            'well', 'location', 'depth', 'user'
+            'well', 'location', 'depth', 'tieon', 'user'
         ).prefetch_related('survey_files')
 
         # Apply filters if provided
@@ -62,7 +62,7 @@ class RunService:
             Run.DoesNotExist: If run not found or deleted
         """
         return Run.objects.select_related(
-            'well', 'location', 'depth', 'user'
+            'well', 'location', 'depth', 'tieon', 'user'
         ).prefetch_related('survey_files').get(id=run_id)
 
     @staticmethod

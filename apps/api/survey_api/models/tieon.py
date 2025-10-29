@@ -129,6 +129,24 @@ class TieOn(models.Model):
         help_text='Expected inclination (<=5° = Vertical, >5° = Deviated)'
     )
 
+    # BHC (Bottom Hole Convergence) and Proposal Direction
+    is_bhc = models.BooleanField(
+        default=False,
+        help_text='Bottom Hole Convergence flag - when enabled, proposal_direction is automatically set to 0'
+    )
+
+    proposal_direction = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(Decimal('0.00')),
+            MaxValueValidator(Decimal('360.00'))
+        ],
+        help_text='Proposal direction (0-360 degrees) - auto-set to 0 when BHC is enabled'
+    )
+
     # Survey interval
     survey_interval_from = models.DecimalField(
         max_digits=10,
@@ -178,11 +196,15 @@ class TieOn(models.Model):
 
     def save(self, *args, **kwargs):
         """
-        Auto-calculate survey_interval_length before saving.
+        Auto-calculate survey_interval_length and handle BHC logic before saving.
         """
         # Calculate survey interval length
         if self.survey_interval_from and self.survey_interval_to:
             self.survey_interval_length = self.survey_interval_to - self.survey_interval_from
+
+        # Auto-set proposal_direction to 0 when BHC is enabled
+        if self.is_bhc:
+            self.proposal_direction = Decimal('0.00')
 
         # Run full_clean for validation
         self.full_clean()

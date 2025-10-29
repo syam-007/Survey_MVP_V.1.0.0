@@ -94,7 +94,8 @@ export const SurveyDataTable: React.FC<SurveyDataTableProps> = ({
 
   // Handle rows per page change
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
+    const value = event.target.value;
+    setRowsPerPage(value === '-1' ? tableData.length : parseInt(value, 10));
     setPage(0);
   };
 
@@ -267,7 +268,7 @@ export const SurveyDataTable: React.FC<SurveyDataTableProps> = ({
 
       {/* Pagination */}
       <TablePagination
-        rowsPerPageOptions={[10, 25, 50, 100]}
+        rowsPerPageOptions={[10, 25, 50, 100, { label: 'All', value: -1 }]}
         component="div"
         count={tableData.length}
         rowsPerPage={rowsPerPage}

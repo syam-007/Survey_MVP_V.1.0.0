@@ -33,7 +33,7 @@ import { SkeletonLoader } from '../../components/common/SkeletonLoader';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { SuccessSnackbar } from '../../components/common/SuccessSnackbar';
 import { useGetRunsQuery, useDeleteRunMutation } from '../../stores/runsSlice';
-import type { RunType, RunFilters } from '../../types/run.types';
+import type { SurveyType, RunType, RunFilters } from '../../types/run.types';
 
 /**
  * RunListPage Component
@@ -94,9 +94,10 @@ export const RunListPage: React.FC = () => {
 
   // Handle page size change
   const handlePageSizeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
     setFilters((prev) => ({
       ...prev,
-      page_size: parseInt(event.target.value, 10),
+      page_size: value === '-1' ? data?.count || 1000 : parseInt(value, 10),
       page: 1,
     }));
   };
@@ -122,8 +123,8 @@ export const RunListPage: React.FC = () => {
   };
 
   // Get run type color
-  const getRunTypeColor = (type: RunType) => {
-    const colors: Record<RunType, 'primary' | 'secondary' | 'success' | 'default'> = {
+  const getRunTypeColor = (type: SurveyType) => {
+    const colors: Record<SurveyType, 'primary' | 'secondary' | 'success' | 'default'> = {
       GTL: 'primary',
       Gyro: 'secondary',
       MWD: 'success',
@@ -241,8 +242,8 @@ export const RunListPage: React.FC = () => {
                     <TableCell>{run.run_name}</TableCell>
                     <TableCell>
                       <Chip
-                        label={run.run_type}
-                        color={getRunTypeColor(run.run_type)}
+                        label={run.survey_type}
+                        color={getRunTypeColor(run.survey_type)}
                         size="small"
                       />
                     </TableCell>
@@ -301,7 +302,7 @@ export const RunListPage: React.FC = () => {
             onPageChange={handlePageChange}
             rowsPerPage={filters.page_size || 20}
             onRowsPerPageChange={handlePageSizeChange}
-            rowsPerPageOptions={[10, 20, 50, 100]}
+            rowsPerPageOptions={[10, 20, 50, 100, { label: 'All', value: -1 }]}
           />
         </Paper>
       ) : (

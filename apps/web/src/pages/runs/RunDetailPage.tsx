@@ -51,9 +51,10 @@ import { ComparisonDialog } from '../../components/comparison/ComparisonDialog';
 import { ExtrapolationDialog } from '../../components/survey/ExtrapolationDialog';
 import { DuplicateSurveyDialog } from '../../components/survey/DuplicateSurveyDialog';
 import { SurveyUploadDialog } from '../../components/survey/SurveyUploadDialog';
+import { GTLQAUploadDialog } from '../../components/survey/GTLQAUploadDialog';
 import { ActivityLogDialog } from '../../components/activity/ActivityLogDialog';
 import surveysService from '../../services/surveysService';
-import type { RunType } from '../../types/run.types';
+import type { SurveyType, RunType } from '../../types/run.types';
 
 /**
  * RunDetailPage Component
@@ -131,8 +132,8 @@ export const RunDetailPage: React.FC = () => {
     }
   };
 
-  const getRunTypeColor = (type: RunType) => {
-    const colors: Record<RunType, 'primary' | 'secondary' | 'success' | 'default'> = {
+  const getRunTypeColor = (type: SurveyType) => {
+    const colors: Record<SurveyType, 'primary' | 'secondary' | 'success' | 'default'> = {
       GTL: 'primary',
       Gyro: 'secondary',
       MWD: 'success',
@@ -425,50 +426,45 @@ export const RunDetailPage: React.FC = () => {
                 </Typography>
                 <Box sx={{ mt: 0.5 }}>
                   <Chip
-                    label={run.run_type}
-                    color={getRunTypeColor(run.run_type)}
+                    label={run.survey_type}
+                    color={getRunTypeColor(run.survey_type)}
                     size="small"
                   />
                 </Box>
               </Box>
 
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Vertical Section
-                </Typography>
-                <Typography variant="body1">
-                  {run.vertical_section ?? 'N/A'}
-                </Typography>
-              </Box>
+              {run.tieon && (
+                <>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      BHC Enabled
+                    </Typography>
+                    <Typography variant="body1">
+                      {run.tieon.is_bhc ? 'Yes' : 'No'}
+                    </Typography>
+                  </Box>
 
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="caption" color="text.secondary">
-                  BHC Enabled
-                </Typography>
-                <Typography variant="body1">
-                  {run.bhc_enabled ? 'Yes' : 'No'}
-                </Typography>
-              </Box>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Proposal Direction (°)
+                    </Typography>
+                    <Typography variant="body1">
+                      {run.tieon.proposal_direction ?? 'N/A'}
+                    </Typography>
+                  </Box>
+                </>
+              )}
 
-              {!run.bhc_enabled && (
-                <Box sx={{ mb: 2 }}>
+              {run.location && (
+                <Box>
                   <Typography variant="caption" color="text.secondary">
-                    Proposal Direction
+                    Grid Correction
                   </Typography>
                   <Typography variant="body1">
-                    {run.proposal_direction ?? 'N/A'}
+                    {run.location.grid_correction ?? 'N/A'}
                   </Typography>
                 </Box>
               )}
-
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Grid Correction
-                </Typography>
-                <Typography variant="body1">
-                  {run.grid_correction ?? 'N/A'}
-                </Typography>
-              </Box>
             </CardContent>
           </Card>
           </Box>
@@ -620,6 +616,86 @@ export const RunDetailPage: React.FC = () => {
                     <Typography variant="body1">
                       {run.location.northing}
                     </Typography>
+                  </Box>
+                </Stack>
+
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600, color: 'primary.main' }}>
+                  Calculated Fields
+                </Typography>
+
+                <Stack direction="row" spacing={2}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Grid Correction
+                    </Typography>
+                    <Typography variant="body1">
+                      {run.location.grid_correction ?? 'N/A'}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      w(t) - Scale Factor
+                    </Typography>
+                    <Typography variant="body1">
+                      {run.location.w_t != null ? Number(run.location.w_t).toFixed(2) : 'N/A'}
+                    </Typography>
+                  </Box>
+                </Stack>
+
+                <Stack direction="row" spacing={2}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Min w(t)
+                    </Typography>
+                    <Typography variant="body1">
+                      {run.location.min_w_t != null ? Number(run.location.min_w_t).toFixed(2) : 'N/A'}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Max w(t)
+                    </Typography>
+                    <Typography variant="body1">
+                      {run.location.max_w_t != null ? Number(run.location.max_w_t).toFixed(2) : 'N/A'}
+                    </Typography>
+                  </Box>
+                </Stack>
+
+                <Stack direction="row" spacing={2}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      g(t) - Grid Convergence
+                    </Typography>
+                    <Typography variant="body1">
+                      {run.location.g_t != null ? Number(run.location.g_t).toFixed(2) : 'N/A'}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Min g(t)
+                    </Typography>
+                    <Typography variant="body1">
+                      {run.location.min_g_t != null ? Number(run.location.min_g_t).toFixed(2) : 'N/A'}
+                    </Typography>
+                  </Box>
+                </Stack>
+
+                <Stack direction="row" spacing={2}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Max g(t)
+                    </Typography>
+                    <Typography variant="body1">
+                      {run.location.max_g_t != null ? Number(run.location.max_g_t).toFixed(2) : 'N/A'}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ flex: 1 }}>
+                    {/* Empty box for alignment */}
                   </Box>
                 </Stack>
               </Stack>
@@ -1143,8 +1219,18 @@ export const RunDetailPage: React.FC = () => {
         />
       )}
 
-      {/* Survey Upload Dialog */}
-      {run && (
+      {/* Survey Upload Dialog - Use GTL QA Dialog for GTL surveys, regular for others */}
+      {run && run.survey_type === 'GTL' ? (
+        <GTLQAUploadDialog
+          open={surveyUploadDialogOpen}
+          run={run}
+          onClose={() => setSurveyUploadDialogOpen(false)}
+          onSuccess={() => {
+            // Refetch run data to update the survey files list
+            refetch();
+          }}
+        />
+      ) : run && (
         <SurveyUploadDialog
           open={surveyUploadDialogOpen}
           run={run}

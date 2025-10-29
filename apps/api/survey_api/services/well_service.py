@@ -28,7 +28,7 @@ class WellService:
         List wells with optional filters.
 
         Args:
-            filters: Optional dictionary of filters (well_type, search, etc.)
+            filters: Optional dictionary of filters (search, etc.)
 
         Returns:
             QuerySet of Well objects with prefetched runs
@@ -41,13 +41,10 @@ class WellService:
 
         # Apply filters if provided
         if filters:
-            if 'well_type' in filters and filters['well_type']:
-                queryset = queryset.filter(well_type=filters['well_type'])
-
             if 'search' in filters and filters['search']:
                 search_term = filters['search']
                 queryset = queryset.filter(
-                    Q(well_name__icontains=search_term)
+                    Q(well_name__icontains=search_term) | Q(well_id__icontains=search_term)
                 )
 
         # Order by created_at descending by default
@@ -96,12 +93,12 @@ class WellService:
                 'well_name': 'A well with this name already exists.'
             })
 
-        # Validate well_type
-        valid_types = ['Oil', 'Gas', 'Water', 'Other']
-        if validated_data.get('well_type') not in valid_types:
-            raise ValidationError({
-                'well_type': f'Invalid well type. Must be one of: {", ".join(valid_types)}'
-            })
+        # Check for unique well_id if provided
+        if validated_data.get('well_id'):
+            if Well.objects.filter(well_id=validated_data['well_id']).exists():
+                raise ValidationError({
+                    'well_id': 'A well with this ID already exists.'
+                })
 
         # Create well
         well = Well.objects.create(**validated_data)
@@ -134,12 +131,11 @@ class WellService:
                     'well_name': 'A well with this name already exists.'
                 })
 
-        # Validate well_type if provided
-        if 'well_type' in validated_data:
-            valid_types = ['Oil', 'Gas', 'Water', 'Other']
-            if validated_data['well_type'] not in valid_types:
+        # Check unique constraint if updating well_id
+        if 'well_id' in validated_data and validated_data['well_id'] != well.well_id:
+            if Well.objects.filter(well_id=validated_data['well_id']).exclude(id=well_id).exists():
                 raise ValidationError({
-                    'well_type': f'Invalid well type. Must be one of: {", ".join(valid_types)}'
+                    'well_id': 'A well with this ID already exists.'
                 })
 
         # Update well fields
@@ -206,11 +202,11 @@ class WellService:
             elif len(well_name) > 255:
                 errors['well_name'] = 'Well name must be 255 characters or less.'
 
-        # Validate well_type
-        if 'well_type' in data:
-            valid_types = ['Oil', 'Gas', 'Water', 'Other']
-            if data['well_type'] not in valid_types:
-                errors['well_type'] = f'Invalid well type. Must be one of: {", ".join(valid_types)}'
+        # Validate well_id
+        if 'well_id' in data:
+            well_id = data['well_id']
+            if well_id and len(well_id) > 100:
+                errors['well_id'] = 'Well ID must be 100 characters or less.'
 
         if errors:
             raise ValidationError(errors)
@@ -228,16 +224,12 @@ class WellService:
         from django.db.models import Count
 
         total_wells = Well.objects.count()
-        wells_by_type = Well.objects.values('well_type').annotate(
-            count=Count('id')
-        )
         wells_with_runs = Well.objects.annotate(
             runs_count=Count('runs')
         ).filter(runs_count__gt=0).count()
 
         return {
             'total_wells': total_wells,
-            'wells_by_type': list(wells_by_type),
             'wells_with_runs': wells_with_runs,
             'wells_without_runs': total_wells - wells_with_runs
         }

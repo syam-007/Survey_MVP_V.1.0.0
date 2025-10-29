@@ -79,6 +79,20 @@ class LocationsService {
   }
 
   /**
+   * Get locations by well ID
+   * @param wellId - Well UUID
+   * @returns Array of locations
+   */
+  async getLocationsByWellId(wellId: string): Promise<Location[]> {
+    try {
+      const response = await this.api.get<{ results: Location[] }>(`/api/v1/locations/?well=${wellId}`);
+      return response.data.results || [];
+    } catch (error: any) {
+      throw this.handleError(error, 'Failed to fetch locations');
+    }
+  }
+
+  /**
    * Get a single location by ID
    * @param id - Location UUID
    * @returns Location details

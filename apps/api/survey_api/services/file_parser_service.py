@@ -87,11 +87,24 @@ class FileParserService:
             result['azi_data'] = df[column_mapping['AZI']].tolist()
 
             # Extract GTL-specific columns if survey type is GTL
+            # For GTL, G(T) and W(T) are REQUIRED with case-insensitive matching
             if survey_type == 'Type 1 - GTL':
-                if 'w(t)' in df.columns:
-                    result['wt_data'] = df['w(t)'].tolist()
-                if 'g(t)' in df.columns:
-                    result['gt_data'] = df['g(t)'].tolist()
+                # Check for G(T) column (case-insensitive)
+                if 'G(T)' not in column_mapping:
+                    raise FileParsingError(
+                        f"Missing required column for GTL: G(T) or G(t) or g(t). Found columns: {df.columns.tolist()}"
+                    )
+                # Check for W(T) column (case-insensitive)
+                if 'W(T)' not in column_mapping:
+                    raise FileParsingError(
+                        f"Missing required column for GTL: W(T) or W(t) or w(t). Found columns: {df.columns.tolist()}"
+                    )
+
+                # Extract G(T) and W(T) data using case-insensitive mapping
+                result['gt_data'] = df[column_mapping['G(T)']].tolist()
+                result['wt_data'] = df[column_mapping['W(T)']].tolist()
+
+                logger.info(f"GTL-specific columns extracted: G(T) and W(T)")
 
             logger.info(f"Successfully parsed {result['row_count']} survey stations")
 

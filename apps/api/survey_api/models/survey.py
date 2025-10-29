@@ -30,7 +30,13 @@ class Survey(models.Model):
 
     run = models.OneToOneField('Run', on_delete=models.CASCADE, related_name='survey')
 
-    survey_type = models.CharField(max_length=50, choices=SURVEY_TYPE_CHOICES)
+    survey_type = models.CharField(
+        max_length=50,
+        choices=SURVEY_TYPE_CHOICES,
+        blank=True,
+        null=True,
+        help_text='Survey type - optional, can be determined from uploaded file'
+    )
     file_path = models.CharField(max_length=500, blank=True, null=True)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='pending')
 

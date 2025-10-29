@@ -33,7 +33,7 @@ import { SuccessSnackbar } from '../../components/common/SuccessSnackbar';
 import { SkeletonLoader } from '../../components/common/SkeletonLoader';
 import { useGetWellByIdQuery, useDeleteWellMutation } from '../../stores/wellsSlice';
 import type { WellType } from '../../types/well.types';
-import type { RunType } from '../../types/run.types';
+import type { SurveyType, RunType } from '../../types/run.types';
 
 /**
  * WellDetailPage Component
@@ -78,8 +78,8 @@ export const WellDetailPage: React.FC = () => {
     return colors[type] || 'default';
   };
 
-  const getRunTypeColor = (type: RunType) => {
-    const colors: Record<RunType, 'primary' | 'secondary' | 'success' | 'default'> = {
+  const getRunTypeColor = (type: SurveyType) => {
+    const colors: Record<SurveyType, 'primary' | 'secondary' | 'success' | 'default'> = {
       GTL: 'primary',
       Gyro: 'secondary',
       MWD: 'success',
@@ -282,8 +282,8 @@ export const WellDetailPage: React.FC = () => {
                           <TableCell>{run.run_name}</TableCell>
                           <TableCell>
                             <Chip
-                              label={run.run_type}
-                              color={getRunTypeColor(run.run_type)}
+                              label={run.survey_type}
+                              color={getRunTypeColor(run.survey_type)}
                               size="small"
                             />
                           </TableCell>
