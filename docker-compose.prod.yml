@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: survey-postgres
+    environment:
+      POSTGRES_DB: survey_db
+      POSTGRES_USER: survey_user
+      POSTGRES_PASSWORD: survey_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U survey_user -d survey_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: survey-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: survey-api
+    command: gunicorn survey_api.wsgi:application --bind 0.0.0.0:8000
+    volumes:
+      - ./apps/api:/app
+    ports:
+      - "8000:8000"
+    expose:
+      - "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_NAME: survey_db
+      DATABASE_USER: survey_user
+      DATABASE_PASSWORD: survey_pass
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: django-dev-secret-key-change-in-production
+      DEBUG: "True"
+      ALLOWED_HOSTS: localhost,127.0.0.1
+      ENVIRONMENT: development
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: survey-web
+    command: npm run build
+    volumes:
+      - ./apps/web:/app
+    depends_on:
+      - api
+
+  nginx:
+      image: nginx:latest
+      container_name: survey-nginx
+      ports:
+        - "80:80"
+        - "443:443"
+      volumes:
+        - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+        - ./apps/web/dist:/usr/share/nginx/html:ro
+        - ./certbot/www:/var/www/certbot
+        - ./certbot/conf:/etc/letsencrypt
+      depends_on:
+        - api
+        - web
+
+  certbot:
+    image: certbot/certbot
+    container_name: survey-certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+
+volumes:
+  postgres_data:

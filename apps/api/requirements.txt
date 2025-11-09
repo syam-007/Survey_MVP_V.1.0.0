@@ -1,17 +1,51 @@
+# Core Django
 asgiref==3.10.0
 Django==5.2.7
+sqlparse==0.5.3
+tzdata==2025.2
+
+# Django Extensions
 django-cors-headers==4.9.0
 django-filter==25.1
+
+# Django REST Framework
 djangorestframework==3.16.1
 djangorestframework_simplejwt==5.5.1
 drf-spectacular==0.28.0
-psycopg2-binary==2.9.10
+
+# Authentication & Security
 PyJWT==2.10.1
-python-decouple==3.8
+
+# Database
+psycopg2-binary==2.9.10
+
+# Cache
 redis==6.4.0
-sqlparse==0.5.3
-tzdata==2025.2
+
+# Configuration
+python-decouple==3.8
+
+# Production Server
+gunicorn>=22.0.0
+
+# Testing
 coverage==7.6.9
-welleng==0.8.5
+
+# Data Processing & Analysis
 numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+
+# Excel/Spreadsheet Processing
 openpyxl==3.1.5
+
+# PDF Generation
+reportlab>=4.0.0
+Pillow>=10.0.0
+
+# Survey Calculations
+welleng==0.8.5
+
+# Plotting & Visualization
+matplotlib>=3.7.0
+plotly>=5.14.0

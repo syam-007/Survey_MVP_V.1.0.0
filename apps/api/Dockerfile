@@ -4,9 +4,23 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
+# Set environment variables for headless operation
+ENV MPLBACKEND=Agg
+ENV DISPLAY=:99
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     postgresql-client \
+    libgl1 \
+    libx11-6 \
+    libxrender1 \
+    libgomp1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxft2 \
+    libglx0 \
+    libegl1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file
