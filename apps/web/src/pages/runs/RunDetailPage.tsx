@@ -14,6 +14,7 @@ import {
   Alert,
   IconButton,
   Tooltip,
+  Snackbar,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -37,17 +38,17 @@ import {
   Assessment as AssessmentIcon,
   Calculate as CalculateIcon,
   History as HistoryIcon,
+  Settings as SettingsIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { PageHeader } from '../../components/common/PageHeader';
 import { ErrorAlert } from '../../components/common/ErrorAlert';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
-import { SuccessSnackbar } from '../../components/common/SuccessSnackbar';
 import { SkeletonLoader } from '../../components/common/SkeletonLoader';
 import { useGetRunByIdQuery, useDeleteRunMutation, useGetRunsQuery } from '../../stores/runsSlice';
 import { useComparisonHistory } from '../../hooks/useComparison';
 import { useExtrapolationsByRun } from '../../hooks/useExtrapolation';
-import { ComparisonDialog } from '../../components/comparison/ComparisonDialog';
 import { ExtrapolationDialog } from '../../components/survey/ExtrapolationDialog';
 import { DuplicateSurveyDialog } from '../../components/survey/DuplicateSurveyDialog';
 import { SurveyUploadDialog } from '../../components/survey/SurveyUploadDialog';
@@ -79,14 +80,18 @@ export const RunDetailPage: React.FC = () => {
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
   const [surveyUploadDialogOpen, setSurveyUploadDialogOpen] = useState(false);
-  const [comparisonDialogOpen, setComparisonDialogOpen] = useState(false);
   const [extrapolationDialogOpen, setExtrapolationDialogOpen] = useState(false);
   const [duplicateSurveyDialogOpen, setDuplicateSurveyDialogOpen] = useState(false);
   const [activityLogDialogOpen, setActivityLogDialogOpen] = useState(false);
   const [deleteSurveyFileDialogOpen, setDeleteSurveyFileDialogOpen] = useState(false);
   const [selectedSurveyFileId, setSelectedSurveyFileId] = useState<string | null>(null);
   const [deletingSurveyFile, setDeletingSurveyFile] = useState(false);
+  const [downloadingServiceTicket, setDownloadingServiceTicket] = useState(false);
+  const [downloadingPrejobReport, setDownloadingPrejobReport] = useState(false);
+  const [downloadingCustomerSatisfaction, setDownloadingCustomerSatisfaction] = useState(false);
 
   // All authenticated users have full access (read, write, delete)
   const canEdit = true;
@@ -104,6 +109,8 @@ export const RunDetailPage: React.FC = () => {
 
     try {
       await deleteRun(id).unwrap();
+      setSnackbarMessage('Run deleted successfully! Redirecting...');
+      setSnackbarSeverity('success');
       setSnackbarOpen(true);
       setTimeout(() => {
         navigate('/runs');
@@ -126,9 +133,143 @@ export const RunDetailPage: React.FC = () => {
       setSelectedSurveyFileId(null);
     } catch (error) {
       console.error('Failed to delete survey file:', error);
-      alert('Failed to delete survey file. Please try again.');
+      setSnackbarMessage('Failed to delete survey file. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
     } finally {
       setDeletingSurveyFile(false);
+    }
+  };
+
+  const handleDownloadServiceTicket = async () => {
+    if (!id) return;
+
+    setDownloadingServiceTicket(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`http://localhost:8000/api/v1/runs/${id}/service_ticket/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate service ticket');
+      }
+
+      // Get the blob
+      const blob = await response.blob();
+
+      // Create a download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Service_Ticket_${run?.run_number || 'download'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      // Show success message
+      setSnackbarMessage('Service ticket downloaded successfully');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Error downloading service ticket:', error);
+      setSnackbarMessage('Failed to download service ticket');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setDownloadingServiceTicket(false);
+    }
+  };
+
+  const handleDownloadPrejobReport = async () => {
+    if (!id) return;
+
+    setDownloadingPrejobReport(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`http://localhost:8000/api/v1/runs/${id}/prejob_report/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate prejob report');
+      }
+
+      // Get the blob
+      const blob = await response.blob();
+
+      // Create a download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Prejob_Report_${run?.run_number || 'download'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      // Show success message
+      setSnackbarMessage('Prejob report downloaded successfully');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Error downloading prejob report:', error);
+      setSnackbarMessage('Failed to download prejob report');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setDownloadingPrejobReport(false);
+    }
+  };
+
+  const handleDownloadCustomerSatisfaction = async () => {
+    if (!id) return;
+
+    setDownloadingCustomerSatisfaction(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`http://localhost:8000/api/v1/runs/${id}/customer_satisfaction/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate customer satisfaction report');
+      }
+
+      // Get the blob
+      const blob = await response.blob();
+
+      // Create a download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Customer_Satisfaction_Report_${run?.run_number || 'download'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      // Show success message
+      setSnackbarMessage('Customer satisfaction report downloaded successfully');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Error downloading customer satisfaction report:', error);
+      setSnackbarMessage('Failed to download customer satisfaction report');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setDownloadingCustomerSatisfaction(false);
     }
   };
 
@@ -190,14 +331,15 @@ export const RunDetailPage: React.FC = () => {
         title={run.run_name}
         breadcrumbs={[
           { label: 'Home', path: '/dashboard' },
-          { label: 'Runs', path: '/runs' },
+          { label: 'Jobs', path: '/jobs' },
+          ...(run.job ? [{ label: run.job.job_number, path: `/jobs/${run.job.id}` }] : []),
           { label: run.run_number },
         ]}
         actions={
           <Box display="flex" gap={2}>
             <Button
               startIcon={<ArrowBackIcon />}
-              onClick={() => navigate('/runs')}
+              onClick={() => run.job ? navigate(`/jobs/${run.job.id}`) : navigate('/runs')}
             >
               Back
             </Button>
@@ -263,7 +405,7 @@ export const RunDetailPage: React.FC = () => {
           <Button
             variant="contained"
             startIcon={<CompareArrowsIcon />}
-            onClick={() => setComparisonDialogOpen(true)}
+            onClick={() => navigate(`/runs/${id}/comparison`)}
             size="large"
             sx={{
               background: 'linear-gradient(45deg, #FE6B8B 30%, #FF8E53 90%)',
@@ -323,6 +465,57 @@ export const RunDetailPage: React.FC = () => {
             }}
           >
             Duplicate Survey
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownloadServiceTicket}
+            disabled={downloadingServiceTicket}
+            size="large"
+            sx={{
+              background: 'linear-gradient(45deg, #4CAF50 30%, #8BC34A 90%)',
+              boxShadow: '0 3px 5px 2px rgba(76, 175, 80, .3)',
+              color: 'white',
+              '&:hover': {
+                background: 'linear-gradient(45deg, #388E3C 30%, #689F38 90%)',
+              },
+            }}
+          >
+            {downloadingServiceTicket ? 'Generating...' : 'Service Ticket'}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownloadPrejobReport}
+            disabled={downloadingPrejobReport}
+            size="large"
+            sx={{
+              background: 'linear-gradient(45deg, #2196F3 30%, #64B5F6 90%)',
+              boxShadow: '0 3px 5px 2px rgba(33, 150, 243, .3)',
+              color: 'white',
+              '&:hover': {
+                background: 'linear-gradient(45deg, #1976D2 30%, #42A5F5 90%)',
+              },
+            }}
+          >
+            {downloadingPrejobReport ? 'Generating...' : 'Prejob Report'}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownloadCustomerSatisfaction}
+            disabled={downloadingCustomerSatisfaction}
+            size="large"
+            sx={{
+              background: 'linear-gradient(45deg, #9C27B0 30%, #BA68C8 90%)',
+              boxShadow: '0 3px 5px 2px rgba(156, 39, 176, .3)',
+              color: 'white',
+              '&:hover': {
+                background: 'linear-gradient(45deg, #7B1FA2 30%, #9C27B0 90%)',
+              },
+            }}
+          >
+            {downloadingCustomerSatisfaction ? 'Generating...' : 'Customer Satisfaction'}
           </Button>
         </Stack>
       </Paper>
@@ -880,6 +1073,318 @@ export const RunDetailPage: React.FC = () => {
           </Box>
         )}
 
+        {/* Survey Information */}
+        {run.survey_files && run.survey_files.filter(f => f.survey_data_id && f.processing_status === 'completed').length > 0 && (
+          <Box sx={{ mb: 3 }}>
+            <Card
+              elevation={3}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #e3f2fd 0%, #2196f3 100%)',
+              }}
+            >
+              <CardContent sx={{ p: 3 }}>
+                <Stack direction="row" spacing={1.5} alignItems="center" mb={2}>
+                  <SettingsIcon sx={{ color: 'white', fontSize: 28 }} />
+                  <Typography variant="h6" fontWeight="bold" color="white">
+                    Survey Information
+                  </Typography>
+                </Stack>
+                <Divider sx={{ mb: 2, bgcolor: 'rgba(255, 255, 255, 0.3)' }} />
+
+                {/* Run Configuration */}
+                <Paper elevation={0} sx={{ p: 2.5, mb: 2, bgcolor: 'white', borderRadius: 2 }}>
+                  <Typography variant="subtitle1" fontWeight="bold" color="primary" gutterBottom>
+                    Run Configuration
+                  </Typography>
+                  <Divider sx={{ mb: 2 }} />
+                  <Stack spacing={2}>
+                    <Stack direction="row" spacing={4} flexWrap="wrap">
+                      <Box sx={{ flex: '1 1 200px' }}>
+                        <Typography variant="caption" color="text.secondary">Survey Type</Typography>
+                        <Chip label={run.survey_type} color="primary" size="small" sx={{ mt: 0.5 }} />
+                      </Box>
+                      {run.run_type && (
+                        <Box sx={{ flex: '1 1 200px' }}>
+                          <Typography variant="caption" color="text.secondary">Run Type</Typography>
+                          <Chip label={run.run_type} color="secondary" size="small" sx={{ mt: 0.5 }} />
+                        </Box>
+                      )}
+                      <Box sx={{ flex: '1 1 200px' }}>
+                        <Typography variant="caption" color="text.secondary">BHC Enabled</Typography>
+                        <Typography variant="body1" fontWeight="bold" color={run.bhc_enabled ? 'success.main' : 'text.secondary'}>
+                          {run.bhc_enabled ? 'Yes' : 'No'}
+                        </Typography>
+                      </Box>
+                    </Stack>
+
+                    <Stack direction="row" spacing={4} flexWrap="wrap">
+                      <Box sx={{ flex: '1 1 200px' }}>
+                        <Typography variant="caption" color="text.secondary">
+                          {run.bhc_enabled ? 'Initial Proposal Direction' : 'Proposal Direction'}
+                        </Typography>
+                        <Typography variant="body1" fontWeight="bold">
+                          {run.proposal_direction !== null && run.proposal_direction !== undefined
+                            ? `${Number(run.proposal_direction).toFixed(2)}°`
+                            : 'N/A'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ flex: '1 1 200px' }}>
+                        <Typography variant="caption" color="text.secondary">Grid Correction</Typography>
+                        <Typography variant="body1" fontWeight="bold">
+                          {run.grid_correction !== null && run.grid_correction !== undefined
+                            ? `${Number(run.grid_correction).toFixed(2)}°`
+                            : 'N/A'}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </Stack>
+                </Paper>
+
+                {/* Survey Files Details */}
+                <Typography variant="subtitle1" fontWeight="bold" sx={{ color: 'white', mb: 1.5 }}>
+                  Survey Files ({run.survey_files.filter(f => f.survey_data_id && f.processing_status === 'completed').length})
+                </Typography>
+                <Stack spacing={1.5}>
+                  {run.survey_files
+                    .filter(file => file.survey_data_id && file.processing_status === 'completed')
+                    .map((file, index) => (
+                    <Paper
+                      key={file.id}
+                      elevation={2}
+                      sx={{
+                        p: 2,
+                        bgcolor: 'white',
+                        borderRadius: 2,
+                        border: '2px solid',
+                        borderColor: run.bhc_enabled ? 'warning.light' : 'transparent',
+                      }}
+                    >
+                      <Stack spacing={1.5}>
+                        {/* File Header */}
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Typography variant="subtitle2" fontWeight="bold" color="primary">
+                            Survey #{index + 1}: {file.filename}
+                          </Typography>
+                          <Chip label={file.survey_type} size="small" color="info" variant="outlined" />
+                        </Stack>
+
+                        <Divider />
+
+                        {/* Survey Details Grid */}
+                        <Stack direction="row" spacing={2} flexWrap="wrap">
+                          {/* MD Range */}
+                          {file.survey_md_range && (
+                            <Paper elevation={0} sx={{ flex: '1 1 200px', p: 1.5, bgcolor: 'grey.50', borderRadius: 1 }}>
+                              <Typography variant="caption" color="text.secondary">Survey Range (MD)</Typography>
+                              <Typography variant="body2" fontWeight="bold">
+                                {file.survey_md_range.from_md.toFixed(2)} - {file.survey_md_range.to_md.toFixed(2)} m
+                              </Typography>
+                            </Paper>
+                          )}
+
+                          {/* Data Points */}
+                          {file.data_point_count && (
+                            <Paper elevation={0} sx={{ flex: '1 1 150px', p: 1.5, bgcolor: 'grey.50', borderRadius: 1 }}>
+                              <Typography variant="caption" color="text.secondary">Data Points</Typography>
+                              <Typography variant="body2" fontWeight="bold">
+                                {file.data_point_count}
+                              </Typography>
+                            </Paper>
+                          )}
+
+                          {/* Final Proposal Direction */}
+                          {file.calculated_proposal_direction !== null && file.calculated_proposal_direction !== undefined && (
+                            <Paper
+                              elevation={0}
+                              sx={{
+                                flex: '1 1 200px',
+                                p: 1.5,
+                                bgcolor: run.bhc_enabled ? 'warning.50' : 'grey.50',
+                                borderRadius: 1,
+                                border: run.bhc_enabled ? '2px solid' : 'none',
+                                borderColor: run.bhc_enabled ? 'warning.main' : 'transparent',
+                              }}
+                            >
+                              <Stack direction="row" spacing={0.5} alignItems="center">
+                                <Typography variant="caption" color="text.secondary">
+                                  {run.bhc_enabled ? 'Updated Proposal Direction (BHC)' : 'Calculated Proposal Direction'}
+                                </Typography>
+                                {run.bhc_enabled && (
+                                  <Tooltip title="This value was calculated using BHC (Bottom Hole Convergence) - final closure direction from last survey point">
+                                    <InfoIcon sx={{ fontSize: 14, color: 'warning.main' }} />
+                                  </Tooltip>
+                                )}
+                              </Stack>
+                              <Typography variant="body2" fontWeight="bold" color={run.bhc_enabled ? 'warning.dark' : 'inherit'}>
+                                {file.calculated_proposal_direction.toFixed(run.bhc_enabled ? 6 : 2)}°
+                              </Typography>
+                            </Paper>
+                          )}
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  ))}
+                </Stack>
+              </CardContent>
+            </Card>
+          </Box>
+        )}
+
+        {/* Survey Calculations Details */}
+        {run.survey_files && run.survey_files.filter(f => f.survey_data_id && f.processing_status === 'completed').length > 0 && (
+          <Box>
+            <Card
+              elevation={3}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #fff9c4 0%, #ffeb3b 100%)',
+              }}
+            >
+              <CardContent sx={{ p: 3 }}>
+                <Stack direction="row" spacing={1.5} alignItems="center" mb={2}>
+                  <CalculateIcon color="warning" sx={{ fontSize: 28 }} />
+                  <Typography variant="h6" fontWeight="bold">
+                    Survey Calculations ({run.survey_files.filter(f => f.survey_data_id).length})
+                  </Typography>
+                </Stack>
+                <Divider sx={{ mb: 2 }} />
+
+                <Stack spacing={2}>
+                  {run.survey_files
+                    .filter(file => file.survey_data_id && file.processing_status === 'completed')
+                    .map((file, index) => (
+                    <Paper
+                      key={file.id}
+                      elevation={2}
+                      sx={{
+                        p: 2.5,
+                        bgcolor: 'white',
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        border: '2px solid transparent',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: 4,
+                          borderColor: 'warning.main',
+                        },
+                      }}
+                      onClick={() => navigate(`/runs/${id}/surveys/${file.survey_data_id}`)}
+                    >
+                      <Stack spacing={2}>
+                        {/* Header with File Info */}
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Box>
+                            <Typography variant="h6" fontWeight="bold" color="primary">
+                              Survey #{index + 1}: {file.filename}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {format(new Date(file.upload_date), 'MMM dd, yyyy hh:mm a')}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            label={file.survey_type}
+                            color="warning"
+                            variant="outlined"
+                            size="medium"
+                          />
+                        </Stack>
+
+                        <Divider />
+
+                        {/* Calculation Details Grid */}
+                        <Box>
+                          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
+                            Calculation Summary
+                          </Typography>
+                          <Stack spacing={1.5}>
+                            <Stack direction="row" spacing={2}>
+                              <Paper elevation={0} sx={{ flex: 1, p: 1.5, bgcolor: 'grey.50', borderRadius: 1 }}>
+                                <Typography variant="caption" color="text.secondary">
+                                  Data Points
+                                </Typography>
+                                <Typography variant="body1" fontWeight="bold">
+                                  {file.data_point_count || 'N/A'}
+                                </Typography>
+                              </Paper>
+                              <Paper elevation={0} sx={{ flex: 1, p: 1.5, bgcolor: 'grey.50', borderRadius: 1 }}>
+                                <Typography variant="caption" color="text.secondary">
+                                  Calculation Status
+                                </Typography>
+                                <Chip
+                                  label={file.processing_status}
+                                  size="small"
+                                  color="success"
+                                  sx={{ mt: 0.5 }}
+                                />
+                              </Paper>
+                            </Stack>
+
+                            {file.survey_data_id && (
+                              <Paper elevation={0} sx={{ p: 1.5, bgcolor: 'success.50', borderRadius: 1 }}>
+                                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                  <Box>
+                                    <Typography variant="caption" color="text.secondary">
+                                      Survey Data ID
+                                    </Typography>
+                                    <Typography variant="body2" fontFamily="monospace" fontSize="0.75rem">
+                                      {file.survey_data_id}
+                                    </Typography>
+                                  </Box>
+                                  <Button
+                                    variant="contained"
+                                    size="small"
+                                    startIcon={<VisibilityIcon />}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/runs/${id}/surveys/${file.survey_data_id}`);
+                                    }}
+                                    sx={{
+                                      background: 'linear-gradient(45deg, #4caf50 30%, #66bb6a 90%)',
+                                      boxShadow: '0 2px 4px rgba(76, 175, 80, 0.3)',
+                                    }}
+                                  >
+                                    View Details
+                                  </Button>
+                                </Stack>
+                              </Paper>
+                            )}
+                          </Stack>
+                        </Box>
+
+                        {/* Quick Action Buttons */}
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Tooltip title="View Survey Results">
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="primary"
+                              startIcon={<AssessmentIcon />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/runs/${id}/surveys/${file.survey_data_id}`);
+                              }}
+                            >
+                              Results
+                            </Button>
+                          </Tooltip>
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  ))}
+                </Stack>
+
+                {run.survey_files.filter(f => f.survey_data_id).length === 0 && (
+                  <Alert severity="info">
+                    No calculated surveys available. Upload a survey file to see calculation details.
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+          </Box>
+        )}
+
         {/* Comparison Summary */}
         {comparisons.length > 0 && (
           <Box>
@@ -1185,21 +1690,21 @@ export const RunDetailPage: React.FC = () => {
         severity="error"
       />
 
-      {/* Success Snackbar */}
-      <SuccessSnackbar
+      {/* Snackbar for notifications */}
+      <Snackbar
         open={snackbarOpen}
-        message="Run deleted successfully! Redirecting..."
+        autoHideDuration={4000}
         onClose={() => setSnackbarOpen(false)}
-      />
-
-      {/* Comparison Dialog */}
-      {run && (
-        <ComparisonDialog
-          open={comparisonDialogOpen}
-          run={run}
-          onClose={() => setComparisonDialogOpen(false)}
-        />
-      )}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity={snackbarSeverity}
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage || 'Run deleted successfully! Redirecting...'}
+        </Alert>
+      </Snackbar>
 
       {/* Extrapolation Dialog */}
       {run && (

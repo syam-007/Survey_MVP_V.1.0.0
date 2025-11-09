@@ -21,9 +21,10 @@ import {
   Button,
   CircularProgress,
   Tabs,
-  Tab
+  Tab,
+  Snackbar
 } from '@mui/material';
-import { PictureAsPdf as PictureAsPdfIcon } from '@mui/icons-material';
+import { PictureAsPdf as PictureAsPdfIcon, Description as DescriptionIcon } from '@mui/icons-material';
 import { Plot2D } from '../../components/visualization/Plot2D';
 import { SingleSurveyPlot3D } from '../../components/survey/SingleSurveyPlot3D';
 import { DataSourceToggle } from '../../components/visualization/DataSourceToggle';
@@ -48,12 +49,16 @@ export const SurveyResultsPage: React.FC = () => {
   const [endMD, setEndMD] = useState<number | undefined>(undefined);
   const [calculatedSurveyId, setCalculatedSurveyId] = useState<string | null>(null);
   const [isDownloadingReport, setIsDownloadingReport] = useState(false);
+  const [isDownloadingServiceTicket, setIsDownloadingServiceTicket] = useState(false);
   const [qaData, setQaData] = useState<QAData | null>(null);
   const [activeTab, setActiveTab] = useState<'qa' | 'survey'>('qa');
   const [isQAApproved, setIsQAApproved] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [tieOnMD, setTieOnMD] = useState<number>(0);
   const [finalMD, setFinalMD] = useState<number>(0);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
   const { data: surveyData, metadata, isLoading, error, isSaved, refetch } = useSurveyPlotData(
     surveyDataId!,
@@ -144,7 +149,13 @@ export const SurveyResultsPage: React.FC = () => {
     setIsDownloadingReport(true);
 
     try {
-      const url = `http://localhost:8000/api/v1/surveys/${surveyDataId}/report/`;
+      // Build URL with query parameters for data source and resolution
+      const params = new URLSearchParams({
+        data_source: dataSource,
+        ...(dataSource === 'interpolated' && { resolution: resolution.toString() })
+      });
+
+      const url = `http://localhost:8000/api/v1/surveys/${surveyDataId}/report/?${params}`;
 
       // Fetch the PDF file
       const response = await fetch(url, {
@@ -184,6 +195,62 @@ export const SurveyResultsPage: React.FC = () => {
       alert('Failed to download report. Please try again.');
     } finally {
       setIsDownloadingReport(false);
+    }
+  };
+
+  const handleDownloadServiceTicket = async () => {
+    if (!runId) return;
+
+    setIsDownloadingServiceTicket(true);
+
+    try {
+      const url = `http://localhost:8000/api/v1/runs/${runId}/service_ticket/`;
+
+      // Fetch the PDF file
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate service ticket');
+      }
+
+      // Create blob from response
+      const blob = await response.blob();
+
+      // Create download link
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const filename = contentDisposition
+        ? contentDisposition.split('filename=')[1].replace(/"/g, '')
+        : `Service_Ticket_${runId}.pdf`;
+
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Clean up
+      window.URL.revokeObjectURL(downloadUrl);
+
+      // Show success message
+      setSnackbarMessage('Service ticket downloaded successfully');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Failed to download service ticket:', error);
+      setSnackbarMessage('Failed to download service ticket. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setIsDownloadingServiceTicket(false);
     }
   };
 
@@ -373,6 +440,15 @@ export const SurveyResultsPage: React.FC = () => {
                   >
                     {isDownloadingReport ? 'Generating...' : 'Download Report'}
                   </Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={isDownloadingServiceTicket ? <CircularProgress size={20} color="inherit" /> : <DescriptionIcon />}
+                    onClick={handleDownloadServiceTicket}
+                    disabled={isDownloadingServiceTicket}
+                  >
+                    {isDownloadingServiceTicket ? 'Generating...' : 'Service Ticket'}
+                  </Button>
                   <DownloadButton surveyId={surveyDataId} dataType="calculated" />
                   {dataSource === 'interpolated' && (
                     <DownloadButton surveyId={surveyDataId} dataType="interpolated" />
@@ -453,6 +529,22 @@ export const SurveyResultsPage: React.FC = () => {
           </Box>
         )}
       </Paper>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity={snackbarSeverity}
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

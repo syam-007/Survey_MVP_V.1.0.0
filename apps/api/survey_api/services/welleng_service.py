@@ -323,16 +323,15 @@ class WellengService:
             interpolated_md_list = [tie_on_md]
 
             # Generate interpolated points from start_md to end_md with given resolution
-            current_md = interpolation_start_md
-            while current_md <= interpolation_end_md:
+            # Use numpy arange for better precision and to ensure endpoint is included
+            num_points = int((interpolation_end_md - interpolation_start_md) / resolution) + 1
+            generated_points = np.linspace(interpolation_start_md, interpolation_end_md, num_points)
+
+            # Add generated points, skipping any that are too close to tie-on
+            for current_md in generated_points:
                 # Only add if not duplicate of tie-on point
                 if abs(current_md - tie_on_md) > 0.01:
-                    interpolated_md_list.append(current_md)
-                current_md += resolution
-
-            # Always include the end MD if it's not already included
-            if abs(interpolated_md_list[-1] - interpolation_end_md) > 0.01:
-                interpolated_md_list.append(interpolation_end_md)
+                    interpolated_md_list.append(float(current_md))
 
             interpolated_md = np.array(interpolated_md_list)
 

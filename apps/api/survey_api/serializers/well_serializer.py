@@ -21,11 +21,11 @@ class WellSerializer(serializers.ModelSerializer):
 
     Includes:
     - Basic well information
-    - List of associated runs (reverse relationship)
+    - List of associated runs (reverse relationship through jobs)
     - Count of associated runs
     """
 
-    runs = RunSummarySerializer(many=True, read_only=True)
+    runs = serializers.SerializerMethodField()
     runs_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -34,12 +34,21 @@ class WellSerializer(serializers.ModelSerializer):
                   'runs', 'runs_count')
         read_only_fields = ('id', 'created_at', 'updated_at', 'runs', 'runs_count')
 
+    def get_runs(self, obj):
+        """Get runs through jobs relationship"""
+        from django.db.models import Q
+        # Get all runs from all jobs associated with this well
+        runs = Run.objects.filter(job__well=obj).order_by('-created_at')
+        return RunSummarySerializer(runs, many=True).data
+
     def get_runs_count(self, obj):
         """Get count of associated runs"""
         # Use annotated value if available (from queryset), otherwise count
         if hasattr(obj, 'runs_count'):
             return obj.runs_count
-        return obj.runs.count()
+        # Count runs through jobs
+        from django.db.models import Count
+        return obj.jobs.aggregate(total_runs=Count('runs'))['total_runs'] or 0
 
     def validate_well_id(self, value):
         """Validate well_id is not empty"""
@@ -82,4 +91,6 @@ class WellListSerializer(serializers.ModelSerializer):
         """Get count of associated runs"""
         if hasattr(obj, 'runs_count'):
             return obj.runs_count
-        return obj.runs.count()
+        # Count runs through jobs
+        from django.db.models import Count
+        return obj.jobs.aggregate(total_runs=Count('runs'))['total_runs'] or 0

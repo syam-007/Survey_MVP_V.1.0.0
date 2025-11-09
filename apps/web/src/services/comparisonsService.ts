@@ -148,6 +148,30 @@ class ComparisonsService {
   // ============ Comparison APIs ============
 
   /**
+   * Calculate comparison without saving to database
+   * @param primarySurveyId - Primary survey data ID
+   * @param referenceSurveyId - Reference survey data ID
+   * @param resolution - Interpolation resolution in meters
+   * @returns Comparison results without saving
+   */
+  async calculateComparison(
+    primarySurveyId: string,
+    referenceSurveyId: string,
+    resolution: number = 5
+  ): Promise<any> {
+    try {
+      const response = await this.api.post('/api/v1/comparisons/compare/', {
+        file1_id: primarySurveyId,
+        file2_id: referenceSurveyId,
+        resolution: resolution,
+      });
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error, 'Failed to calculate comparison');
+    }
+  }
+
+  /**
    * Create a new survey comparison
    * @param data - Comparison creation data
    * @returns Created comparison with full delta data

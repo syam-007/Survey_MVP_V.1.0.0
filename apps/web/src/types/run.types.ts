@@ -58,6 +58,12 @@ export interface SurveyFile {
   upload_date: string;
   file_size: number;
   survey_data_id?: string;
+  data_point_count?: number;
+  survey_md_range?: {
+    from_md: number;
+    to_md: number;
+  };
+  calculated_proposal_direction?: number;
 }
 
 export interface Run {

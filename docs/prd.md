@@ -30,8 +30,14 @@ The application will be used by engineers and surveyors:
 
 ### 4.1 Survey Calculation & Interpolation
 
-* Automatically triggered after file upload (default interpolation resolution = 10).
-* Results: Survey data is available immediately, and interpolation is provided with a default resolution of 10, including graphs and data
+* Automatically triggered after file upload (default interpolation resolution = 5).
+* Results: Survey data is available immediately, and interpolation is provided with a default resolution of 5, including graphs and data
+* Interpolation controls are only displayed in the Interpolated tab, not in the Calculated tab
+* Interpolation is supported for surveys where finalMD > tieOnMD (including tie-on at surface level, MD = 0)
+* Users can customize interpolation parameters:
+  * Resolution: Step size between interpolated points (1-100 meters)
+  * Start Point: Beginning MD for interpolation (must be >= tie-on MD)
+  * End Point: Ending MD for interpolation (must be <= final survey MD)
 * The calculated result can be downloaded in an Excel format.
 
 ### 4.2 Comparison
@@ -116,6 +122,13 @@ User must provide:
 Backend calculations:
 
 * g(t), max g(t), w(t), max w(t).
+
+Location Display Features:
+
+* **Complete Run Form - Location Step**: When a location is selected, all location details are displayed in a read-only panel including:
+  * Coordinates: Latitude (DMS), Longitude (DMS), Easting (UTM), Northing (UTM)
+  * Geodetic Information: Geodetic Datum, Geodetic System, Map Zone, North Reference, Central Meridian
+* **Complete Run Form - Review Step**: Comprehensive location summary displayed before submission with all coordinate formats and geodetic information
 
 ### 5.3 Depth Information
 
@@ -211,6 +224,7 @@ The comparison results are displayed in a comprehensive format with the followin
        * Red: > 1.5° (High deviation)
    * Sticky header and scrollable table (max height: 600px)
    * Color legend displayed below the table
+   * Pagination with configurable rows per page (10, 20, 50, 100, All)
 
 3. **Statistical Summary**
    * Key metrics cards showing:
@@ -348,8 +362,14 @@ Requirement:
 
 * Performance: Calculations should complete within a few seconds for typical datasets (<10,000 records).
 * Scalability: Must handle large surveys with tens of thousands of data points.
-* Usability: The application supports a structured workflow, but it is not strictly linear. Users can move between sections as needed, either following the recommended order or jumping directly to specific sections.
-* Data Validation: Clear error messages if input files are invalid or missing columns.
+* Usability:
+  * The application supports a structured workflow, but it is not strictly linear. Users can move between sections as needed, either following the recommended order or jumping directly to specific sections.
+  * Number input fields handle empty states properly without showing "0" prefix
+  * All data tables support pagination with configurable rows per page including "All" option
+* Data Validation:
+  * Clear error messages if input files are invalid or missing columns.
+  * Array length validation for comparison operations with detailed error messages identifying problematic surveys
+  * Validation messages specify which survey (reference or comparison) has data inconsistencies
 * Portability: Should run in modern browsers (Chrome, Edge, Firefox).
 
 ## Technical Dependencies & Constraints

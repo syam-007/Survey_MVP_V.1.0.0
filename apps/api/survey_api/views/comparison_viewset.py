@@ -29,6 +29,178 @@ logger = logging.getLogger(__name__)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def compare_surveys_temp(request):
+    """
+    Compare two survey files temporarily without saving to database.
+
+    Request Body:
+        {
+            "file1_id": "uuid",  // Survey file ID
+            "file2_id": "uuid",  // Survey file ID
+            "resolution": 5      // Optional, interpolation resolution in meters (default: 5, range: 1-100)
+        }
+
+    Response:
+        200 OK: Comparison results (not saved to database)
+        400 Bad Request: Validation errors
+        404 Not Found: Survey file not found
+        500 Internal Server Error: Calculation failed
+    """
+    try:
+        file1_id = request.data.get('file1_id')
+        file2_id = request.data.get('file2_id')
+        resolution = request.data.get('resolution', 5)  # Default to 5 meters
+
+        if not file1_id or not file2_id:
+            return Response(
+                {'error': 'Both file1_id and file2_id are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate resolution
+        try:
+            resolution = float(resolution)
+            if resolution < 1 or resolution > 100:
+                return Response(
+                    {'error': 'Resolution must be between 1 and 100 meters'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'Invalid resolution value'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get survey data for both files
+        from survey_api.models import SurveyFile
+        survey_file1 = get_object_or_404(SurveyFile, id=file1_id)
+        survey_file2 = get_object_or_404(SurveyFile, id=file2_id)
+
+        # Get the survey data (assuming there's one survey data per file)
+        survey_data1 = SurveyData.objects.filter(survey_file=survey_file1).first()
+        survey_data2 = SurveyData.objects.filter(survey_file=survey_file2).first()
+
+        if not survey_data1 or not survey_data2:
+            return Response(
+                {'error': 'Survey data not found for one or both files'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Calculate deltas without saving
+        logger.info(f"Temporary comparison: {file1_id} vs {file2_id} with resolution {resolution}m")
+
+        delta_results = DeltaCalculationService.calculate_deltas(
+            comparison_survey_id=str(survey_data1.id),
+            reference_survey_id=str(survey_data2.id),
+            ratio_factor=resolution  # Use user-defined resolution
+        )
+
+        # Log activity for temporary comparison
+        try:
+            # Get the run from the first survey file
+            run = survey_file1.run
+            if run:
+                description = (
+                    f'Comparison Performed (Temporary)\n'
+                    f'Primary Survey: {survey_file1.file_name}\n'
+                    f'Reference Survey: {survey_file2.file_name}\n'
+                    f'Resolution: {resolution}m, Stations: {len(delta_results["md_aligned"])}'
+                )
+
+                log_activity(
+                    run_id=run.id,
+                    user=request.user,
+                    activity_type='comparison_created',
+                    description=description,
+                    metadata={
+                        'comparison_type': 'temporary',
+                        'primary_file_id': str(file1_id),
+                        'reference_file_id': str(file2_id),
+                        'primary_file_name': survey_file1.file_name,
+                        'reference_file_name': survey_file2.file_name,
+                        'resolution': resolution,
+                        'num_stations': len(delta_results['md_aligned'])
+                    }
+                )
+        except Exception as log_error:
+            logger.warning(f"Failed to log temporary comparison: {str(log_error)}")
+
+        # Format results for display
+        md_data = delta_results['md_aligned']
+        results = []
+
+        for i in range(len(md_data)):
+            results.append({
+                'depth': float(md_data[i]),
+                'inclination1': float(delta_results.get('comparison_inc', [])[i]) if i < len(delta_results.get('comparison_inc', [])) else 0,
+                'azimuth1': float(delta_results.get('comparison_azi', [])[i]) if i < len(delta_results.get('comparison_azi', [])) else 0,
+                'inclination2': float(delta_results.get('reference_inc', [])[i]) if i < len(delta_results.get('reference_inc', [])) else 0,
+                'azimuth2': float(delta_results.get('reference_azi', [])[i]) if i < len(delta_results.get('reference_azi', [])) else 0,
+                'inc_diff': float(delta_results['delta_inc'][i]) if i < len(delta_results['delta_inc']) else 0,
+                'azi_diff': float(delta_results['delta_azi'][i]) if i < len(delta_results['delta_azi']) else 0,
+                'delta_horizontal': float(delta_results['delta_horizontal'][i]) if i < len(delta_results['delta_horizontal']) else 0,
+                'delta_vertical': float(delta_results['delta_z'][i]) if i < len(delta_results['delta_z']) else 0,
+                # Comparison survey coordinates
+                'comparison_north': float(delta_results.get('comparison_northing', [])[i]) if i < len(delta_results.get('comparison_northing', [])) else 0,
+                'comparison_east': float(delta_results.get('comparison_easting', [])[i]) if i < len(delta_results.get('comparison_easting', [])) else 0,
+                'comparison_tvd': float(delta_results.get('comparison_tvd', [])[i]) if i < len(delta_results.get('comparison_tvd', [])) else 0,
+                # Reference survey coordinates
+                'reference_north': float(delta_results.get('reference_northing', [])[i]) if i < len(delta_results.get('reference_northing', [])) else 0,
+                'reference_east': float(delta_results.get('reference_easting', [])[i]) if i < len(delta_results.get('reference_easting', [])) else 0,
+                'reference_tvd': float(delta_results.get('reference_tvd', [])[i]) if i < len(delta_results.get('reference_tvd', [])) else 0,
+                # Deltas
+                'delta_north': float(delta_results.get('delta_y', [])[i]) if i < len(delta_results.get('delta_y', [])) else 0,
+                'delta_east': float(delta_results.get('delta_x', [])[i]) if i < len(delta_results.get('delta_x', [])) else 0,
+                'delta_tvd': float(delta_results.get('delta_z', [])[i]) if i < len(delta_results.get('delta_z', [])) else 0,
+                # Total displacement
+                'displacement': float(delta_results.get('delta_total', [])[i]) if i < len(delta_results.get('delta_total', [])) else 0,
+            })
+
+        return Response({
+            'results': results,
+            'statistics': delta_results.get('statistics', {}),
+            'file1_name': survey_file1.file_name,
+            'file2_name': survey_file2.file_name,
+            # Add coordinate arrays for 3D plot
+            'comparison_easting': delta_results.get('comparison_easting', []),
+            'comparison_northing': delta_results.get('comparison_northing', []),
+            'comparison_tvd': delta_results.get('comparison_tvd', []),
+            'reference_easting': delta_results.get('reference_easting', []),
+            'reference_northing': delta_results.get('reference_northing', []),
+            'reference_tvd': delta_results.get('reference_tvd', []),
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        logger.error(f"Temporary comparison failed: {type(e).__name__}: {str(e)}")
+
+        # Check for specific error types and provide user-friendly messages
+        error_message = str(e)
+
+        # Handle data inconsistency errors
+        if 'data inconsistency' in error_message.lower() or 'length' in error_message.lower():
+            return Response(
+                {
+                    'error': 'Survey Data Inconsistency',
+                    'message': 'One or both survey files have incomplete or inconsistent data. Some rows may be missing coordinate values (Easting, Northing, or TVD) while having MD (Measured Depth) values.',
+                    'details': error_message,
+                    'suggestion': 'Please check your Excel files and ensure all rows have complete data for MD, Inc, Azi, Easting, Northing, and TVD columns.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Handle other errors
+        return Response(
+            {
+                'error': 'Comparison Failed',
+                'message': 'An error occurred while comparing the surveys.',
+                'details': error_message
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def create_comparison(request):
     """
     Create a new survey comparison.
@@ -130,19 +302,35 @@ def create_comparison(request):
 
         logger.info(f"Comparison created: {comparison.id}")
 
-        # Log activity
+        # Log activity with detailed information
         try:
+            # Get file names from surveys
+            primary_file_name = primary_survey.survey_file.file_name if primary_survey.survey_file else 'Unknown'
+            reference_file_name = reference_survey.survey_file.file_name if reference_survey.survey_file else 'Unknown'
+
+            # Create detailed description
+            description = (
+                f'Comparison Created - Run: {run.run_number}\n'
+                f'Primary Survey: {primary_file_name}\n'
+                f'Reference Survey: {reference_file_name}\n'
+                f'Resolution: {ratio_factor}m, Stations: {len(delta_results["md_aligned"])}'
+            )
+
             log_activity(
                 run_id=run.id,
                 user=request.user,
                 activity_type='comparison_created',
-                description=f'Created comparison between {primary_survey.survey_file.file_name} and {reference_survey.survey_file.file_name}',
+                description=description,
                 metadata={
                     'comparison_id': str(comparison.id),
                     'primary_survey_id': str(primary_survey_id),
                     'reference_survey_id': str(reference_survey_id),
+                    'primary_file_name': primary_file_name,
+                    'reference_file_name': reference_file_name,
                     'ratio_factor': ratio_factor,
-                    'num_stations': len(delta_results['md_aligned'])
+                    'num_stations': len(delta_results['md_aligned']),
+                    'run_number': run.run_number,
+                    'run_name': run.run_name
                 }
             )
         except Exception as log_error:
@@ -201,6 +389,31 @@ def get_comparison_detail(request, comparison_id):
                 {'error': 'You do not have permission to access this comparison'},
                 status=status.HTTP_403_FORBIDDEN
             )
+
+        # Log activity
+        try:
+            primary_file_name = comparison.primary_survey.survey_file.file_name if comparison.primary_survey.survey_file else 'Unknown'
+            reference_file_name = comparison.reference_survey.survey_file.file_name if comparison.reference_survey.survey_file else 'Unknown'
+
+            description = (
+                f'Comparison Viewed\n'
+                f'Primary Survey: {primary_file_name}\n'
+                f'Reference Survey: {reference_file_name}'
+            )
+
+            log_activity(
+                run_id=comparison.run.id,
+                user=request.user,
+                activity_type='comparison_viewed',
+                description=description,
+                metadata={
+                    'comparison_id': str(comparison_id),
+                    'primary_file_name': primary_file_name,
+                    'reference_file_name': reference_file_name
+                }
+            )
+        except Exception as log_error:
+            logger.warning(f"Failed to log comparison view: {str(log_error)}")
 
         serializer = ComparisonResultSerializer(comparison)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -320,6 +533,31 @@ def delete_comparison(request, comparison_id):
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        # Log activity before deleting
+        try:
+            primary_file_name = comparison.primary_survey.survey_file.file_name if comparison.primary_survey.survey_file else 'Unknown'
+            reference_file_name = comparison.reference_survey.survey_file.file_name if comparison.reference_survey.survey_file else 'Unknown'
+
+            description = (
+                f'Comparison Deleted\n'
+                f'Primary Survey: {primary_file_name}\n'
+                f'Reference Survey: {reference_file_name}'
+            )
+
+            log_activity(
+                run_id=comparison.run.id,
+                user=request.user,
+                activity_type='comparison_deleted',
+                description=description,
+                metadata={
+                    'comparison_id': str(comparison_id),
+                    'primary_file_name': primary_file_name,
+                    'reference_file_name': reference_file_name
+                }
+            )
+        except Exception as log_error:
+            logger.warning(f"Failed to log comparison deletion: {str(log_error)}")
+
         comparison.delete()
         logger.info(f"Comparison deleted: {comparison_id} by user {request.user.username}")
 
@@ -383,6 +621,34 @@ def export_comparison(request, comparison_id):
             comparison_id=str(comparison_id),
             format=export_format
         )
+
+        # Log activity
+        try:
+            primary_file_name = comparison.primary_survey.survey_file.file_name if comparison.primary_survey.survey_file else 'Unknown'
+            reference_file_name = comparison.reference_survey.survey_file.file_name if comparison.reference_survey.survey_file else 'Unknown'
+
+            description = (
+                f'Comparison Exported ({export_format.upper()})\n'
+                f'Primary Survey: {primary_file_name}\n'
+                f'Reference Survey: {reference_file_name}\n'
+                f'File: {filename}'
+            )
+
+            log_activity(
+                run_id=comparison.run.id,
+                user=request.user,
+                activity_type='comparison_exported',
+                description=description,
+                metadata={
+                    'comparison_id': str(comparison_id),
+                    'primary_file_name': primary_file_name,
+                    'reference_file_name': reference_file_name,
+                    'export_format': export_format,
+                    'filename': filename
+                }
+            )
+        except Exception as log_error:
+            logger.warning(f"Failed to log comparison export: {str(log_error)}")
 
         # Create HTTP response
         response = HttpResponse(

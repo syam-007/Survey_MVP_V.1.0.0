@@ -7,10 +7,11 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.http import FileResponse
 from django.db import transaction
+from io import BytesIO
 import logging
 
 from survey_api.models import SurveyData, CalculatedSurvey, QualityCheck
-from survey_api.services.report_service import generate_survey_report
+from survey_api.services.survey_calculation_report_service import generate_survey_calculation_report
 from survey_api.services.survey_calculation_service import SurveyCalculationService
 from survey_api.services.qa_service import QAService
 
@@ -204,7 +205,11 @@ def get_survey_data_detail(request, survey_data_id):
 @permission_classes([IsAuthenticated])
 def generate_survey_report_view(request, survey_data_id):
     """
-    Generate PDF report for survey data with calculated results.
+    Generate PDF report for survey data with calculated or interpolated results.
+
+    Query Parameters:
+        data_source: 'calculated' or 'interpolated' (default: 'calculated')
+        resolution: Interpolation resolution in meters (required if data_source='interpolated', default: 5)
 
     Args:
         survey_data_id: UUID of the SurveyData
@@ -215,19 +220,33 @@ def generate_survey_report_view(request, survey_data_id):
         500 Internal Server Error: Report generation failed
     """
     try:
+        from survey_api.services.interpolated_report_service import generate_interpolated_survey_report
+
         survey_data = SurveyData.objects.select_related('survey_file__run__well').get(id=survey_data_id)
 
-        # Generate PDF report
-        pdf_buffer = generate_survey_report(survey_data)
+        # Get query parameters
+        data_source = request.GET.get('data_source', 'calculated')
+        resolution = int(request.GET.get('resolution', 5))
+
+        # Generate PDF report based on data source
+        if data_source == 'interpolated':
+            # Get calculated survey ID
+            calculated_survey = CalculatedSurvey.objects.get(survey_data_id=survey_data_id)
+            pdf_bytes = generate_interpolated_survey_report(str(calculated_survey.id), resolution)
+            filename_prefix = f"interpolated_survey_report_r{resolution}m"
+        else:
+            # Default to calculated report
+            pdf_bytes = generate_survey_calculation_report(survey_data_id)
+            filename_prefix = "survey_calculation_report"
 
         # Create response with PDF
         response = FileResponse(
-            pdf_buffer,
+            BytesIO(pdf_bytes),
             content_type='application/pdf'
         )
 
         # Set filename for download
-        filename = f"survey_report_{survey_data.survey_file.file_name.rsplit('.', 1)[0]}.pdf"
+        filename = f"{filename_prefix}_{survey_data.survey_file.file_name.rsplit('.', 1)[0]}.pdf"
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
         return response

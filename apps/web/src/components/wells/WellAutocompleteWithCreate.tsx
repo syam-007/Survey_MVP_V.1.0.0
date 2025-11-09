@@ -13,6 +13,7 @@ interface WellAutocompleteWithCreateProps {
   disabled?: boolean;
   required?: boolean;
   label?: string;
+  wells?: Well[]; // Optional prop to provide wells directly
 }
 
 /**
@@ -28,6 +29,7 @@ export const WellAutocompleteWithCreate: React.FC<WellAutocompleteWithCreateProp
   disabled = false,
   required = false,
   label = 'Well',
+  wells: wellsProp,
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -58,14 +60,28 @@ export const WellAutocompleteWithCreate: React.FC<WellAutocompleteWithCreateProp
     };
   }, []);
 
-  // Query wells with search filter
+  // Query wells with search filter (only if wells prop not provided)
   const { data, isLoading, isFetching } = useGetWellsQuery(
     debouncedSearch
-      ? { search: debouncedSearch, page_size: 20 }
-      : { page_size: 20 }
+      ? { search: debouncedSearch, page_size: 100 }
+      : { page_size: 100 },
+    { skip: !!wellsProp } // Skip RTK Query if wells prop is provided
   );
 
-  const wells = useMemo(() => data?.results || [], [data]);
+  // Use wells from prop if provided, otherwise use RTK Query results
+  const wells = useMemo(() => {
+    if (wellsProp) {
+      // Filter wells based on search if needed
+      if (debouncedSearch) {
+        return wellsProp.filter(w =>
+          w.well_name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+          w.well_id?.toLowerCase().includes(debouncedSearch.toLowerCase())
+        );
+      }
+      return wellsProp;
+    }
+    return data?.results || [];
+  }, [wellsProp, debouncedSearch, data]);
 
   // Create a special "create new" option
   const CREATE_NEW_OPTION: Well = {
@@ -78,10 +94,23 @@ export const WellAutocompleteWithCreate: React.FC<WellAutocompleteWithCreateProp
     updated_at: '',
   };
 
-  // Combine wells with create new option
+  // Combine wells with create new option, ensuring selected well is included
   const options = useMemo(() => {
-    return [CREATE_NEW_OPTION, ...wells];
-  }, [wells]);
+    let wellsList = [...wells];
+
+    // Always ensure the selected well is in the options list
+    if (value && value.id !== '__create_new__') {
+      // Remove the well if it already exists to avoid duplicates
+      wellsList = wellsList.filter(w => w.id !== value.id);
+      // Add the selected well at the beginning (after CREATE_NEW_OPTION)
+      wellsList.unshift(value);
+    }
+
+    return [CREATE_NEW_OPTION, ...wellsList];
+  }, [wells, value]);
+
+  // Loading state: only show loading if using RTK Query and it's loading
+  const loading = wellsProp ? false : (isLoading || isFetching);
 
   const handleChange = (event: any, newValue: Well | null) => {
     if (newValue?.id === '__create_new__') {
@@ -111,7 +140,7 @@ export const WellAutocompleteWithCreate: React.FC<WellAutocompleteWithCreateProp
           return option.well_id ? `${option.well_id} - ${option.well_name}` : option.well_name;
         }}
         isOptionEqualToValue={(option, value) => option.id === value.id}
-        loading={isLoading || isFetching}
+        loading={loading}
         disabled={disabled}
         renderOption={(props, option) => {
           if (option.id === '__create_new__') {
@@ -158,7 +187,7 @@ export const WellAutocompleteWithCreate: React.FC<WellAutocompleteWithCreateProp
               ...params.InputProps,
               endAdornment: (
                 <>
-                  {(isLoading || isFetching) ? (
+                  {loading ? (
                     <CircularProgress color="inherit" size={20} />
                   ) : null}
                   {params.InputProps.endAdornment}

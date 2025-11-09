@@ -14,6 +14,7 @@ This unified approach combines what would traditionally be separate backend and 
 |------|---------|-------------|---------|
 | 2024-12-19 | 1.0 | Initial architecture document | Winston (Architect) |
 | 2025-01-28 | 1.1 | Added comparison results enhancements: color-coded data tables, tabbed visualizations, GTL QA workflow, database optimizations | System |
+| 2025-01-29 | 1.2 | Added UI improvements: interpolation controls visibility fix, number input empty state handling, pagination "All" option, location data display enhancements, comparison validation improvements | System |
 
 ## High Level Architecture
 
@@ -341,6 +342,30 @@ interface QualityCheck {
 #### Database Optimizations
 - Location W(t) and G(t) values rounded to 1 decimal place at database level using `ROUND()` function
 - Ensures consistency between file data and location data for accurate QA calculations
+
+### Interpolation
+**Purpose:** Provides user-configurable survey interpolation with real-time preview
+
+**Key Attributes:**
+- resolution: integer - Step size between interpolated points (1-100 meters, default: 5)
+- start_md: float - Starting measured depth for interpolation (>= tie-on MD)
+- end_md: float - Ending measured depth for interpolation (<= final survey MD)
+- interpolated_data: json - Calculated interpolated survey points
+
+**Business Rules:**
+- Interpolation controls only visible when viewing interpolated data (not calculated data)
+- Interpolation supported when finalMD > tieOnMD (including tie-on at surface, MD = 0)
+- Empty input fields handled properly without defaulting to "0" prefix
+- Interpolated data includes: MD, INC, AZI, Easting, Northing, TVD, DLS arrays
+
+#### TypeScript Interface
+```typescript
+interface InterpolationConfig {
+  resolution: number | '';  // Allows empty state
+  start_md: number | '';    // Allows empty state
+  end_md: number | '';      // Allows empty state
+}
+```
 
 ## API Specification
 
@@ -849,6 +874,151 @@ interface QAResult {
 }
 ```
 
+##### InterpolationControls Component
+**Purpose:** Provide user interface for configuring survey interpolation parameters
+
+**Key Features:**
+- **Empty State Handling:** Input fields use `number | ''` type to preserve empty state without "0" prefix
+- **Validation:** Real-time validation ensures start_md >= tie-on MD and end_md <= final MD
+- **Visibility Control:** Only displayed when `dataSource === 'interpolated'` to avoid confusion
+- **Tie-on Support:** Supports surveys with tie-on at surface level (MD = 0)
+
+**Implementation Details:**
+```typescript
+interface InterpolationControlsProps {
+  calculatedSurveyId: string;
+  currentResolution: number;
+  isSaved: boolean;
+  tieOnMD: number;
+  finalMD: number;
+  onResolutionChange: (resolution: number, startMD: number, endMD: number) => void;
+  onInterpolationComplete: () => void;
+}
+
+export const InterpolationControls: React.FC<InterpolationControlsProps> = ({
+  calculatedSurveyId,
+  currentResolution,
+  tieOnMD,
+  finalMD,
+  ...
+}) => {
+  // State uses union type to preserve empty strings
+  const [resolution, setResolution] = useState<number | ''>(currentResolution);
+  const [startPoint, setStartPoint] = useState<number | ''>(tieOnMD + currentResolution);
+  const [endPoint, setEndPoint] = useState<number | ''>(finalMD);
+
+  // onChange handler preserves empty state
+  const handleResolutionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setResolution(value === '' ? '' : Number(value));
+  };
+
+  return (
+    <TextField
+      value={resolution}
+      onChange={handleResolutionChange}
+      type="number"
+      // ... other props
+    />
+  );
+};
+```
+
+**Visibility Logic (SurveyResultsPage.tsx):**
+```typescript
+// Only show controls in interpolated tab when finalMD > tieOnMD
+{dataSource === 'interpolated' && calculatedSurveyId && finalMD > tieOnMD && (
+  <InterpolationControls
+    calculatedSurveyId={calculatedSurveyId}
+    currentResolution={resolution}
+    isSaved={isSaved}
+    tieOnMD={tieOnMD}
+    finalMD={finalMD}
+    onResolutionChange={handleInterpolationChange}
+    onInterpolationComplete={refetch}
+  />
+)}
+```
+
+##### Pagination Components
+**Purpose:** Provide consistent pagination across all data tables
+
+**Key Features:**
+- **"All" Option:** Displays all records when selected (value: -1)
+- **Consistent Options:** 10, 20, 50, 100, All across all tables
+- **Smart Handling:** When "All" selected, page_size set to total record count
+
+**Implementation Pattern:**
+```typescript
+const handlePageSizeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const value = event.target.value;
+  setFilters((prev) => ({
+    ...prev,
+    page_size: value === '-1' ? data?.count || 1000 : parseInt(value, 10),
+    page: 1,
+  }));
+};
+
+<TablePagination
+  rowsPerPageOptions={[10, 20, 50, 100, { label: 'All', value: -1 }]}
+  component="div"
+  count={data?.count || 0}
+  rowsPerPage={filters.page_size}
+  page={filters.page - 1}
+  onPageChange={handlePageChange}
+  onRowsPerPageChange={handlePageSizeChange}
+/>
+```
+
+**Applied to:**
+- `RunListPage.tsx` - Run listing table
+- `WellListPage.tsx` - Well listing table
+- `SurveyDataTable.tsx` - Survey data tables
+
+##### LocationStep Component Enhancement
+**Purpose:** Display comprehensive location details when selecting existing location
+
+**Key Features:**
+- **Read-only Display Panel:** Shows all location details in a grey-background Paper component
+- **Coordinate Formats:** Displays both DMS and UTM coordinates
+- **Geodetic Information:** Shows datum, system, map zone, north reference, central meridian
+- **Conditional Rendering:** Only appears when location selected and not in manual entry mode
+
+**Implementation:**
+```typescript
+{selectedLocation && !useManualEntry && selectedLocation.id !== '__create_new__' && (
+  <Grid item xs={12}>
+    <Paper sx={{ p: 3, bgcolor: 'grey.50' }}>
+      <Typography variant="subtitle1" gutterBottom>
+        Selected Location Details
+      </Typography>
+
+      {/* Coordinates Section */}
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6}>
+          <Typography variant="caption">Latitude (DMS)</Typography>
+          <Typography variant="body2">
+            {selectedLocation.latitude_degrees}°
+            {selectedLocation.latitude_minutes || 0}'
+            {selectedLocation.latitude_seconds ? Number(selectedLocation.latitude_seconds).toFixed(3) : 0}"
+          </Typography>
+        </Grid>
+        {/* ... more coordinate fields */}
+      </Grid>
+
+      {/* Geodetic Information Section */}
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6}>
+          <Typography variant="caption">Geodetic Datum</Typography>
+          <Typography variant="body2">{selectedLocation.geodetic_datum || 'N/A'}</Typography>
+        </Grid>
+        {/* ... more geodetic fields */}
+      </Grid>
+    </Paper>
+  </Grid>
+)}
+```
+
 ### State Management Architecture
 
 #### State Structure
@@ -990,23 +1160,94 @@ api/
 │   ├── runs.py            # Run management endpoints
 │   ├── surveys.py         # Survey processing endpoints
 │   ├── files.py           # File upload endpoints
-│   └── reports.py         # Report generation endpoints
+│   ├── reports.py         # Report generation endpoints
+│   └── qa_viewset.py      # GTL QA endpoints
 ├── serializers/
 │   ├── run_serializers.py
 │   ├── survey_serializers.py
-│   └── file_serializers.py
+│   ├── file_serializers.py
+│   └── location_serializers.py
 ├── services/
 │   ├── survey_calculator.py
 │   ├── file_processor.py
-│   └── report_generator.py
+│   ├── report_generator.py
+│   ├── delta_calculation_service.py  # Comparison calculations with validation
+│   ├── welleng_service.py            # Welleng library integration
+│   └── qa_service.py                  # GTL QA calculations
 ├── models/
 │   ├── run.py
 │   ├── survey.py
-│   └── file.py
+│   ├── file.py
+│   ├── location.py
+│   └── quality_check.py
 └── utils/
     ├── validators.py
     └── helpers.py
 ```
+
+#### Comparison Validation Service
+**Purpose:** Validate survey data arrays before comparison to prevent calculation errors
+
+**Key Features:**
+- **Array Length Validation:** Ensures MD, INC, AZI, Easting, Northing, TVD arrays have matching lengths
+- **Detailed Error Messages:** Specifies which survey (reference or comparison) has inconsistencies
+- **Array-Specific Reporting:** Identifies which specific array (MD, INC, AZI, Easting, etc.) has mismatched length
+
+**Implementation (delta_calculation_service.py):**
+```python
+def calculate_deltas(ref_survey, comp_survey):
+    """Calculate deltas between reference and comparison surveys."""
+
+    # Validate reference survey array lengths
+    if len(ref_md) != len(ref_inc):
+        raise InvalidSurveyDataError(
+            f"Reference survey data inconsistency: MD length ({len(ref_md)}) != "
+            f"INC length ({len(ref_inc)}). Survey ID: {ref_survey.id}"
+        )
+    if len(ref_md) != len(ref_azi):
+        raise InvalidSurveyDataError(
+            f"Reference survey data inconsistency: MD length ({len(ref_md)}) != "
+            f"AZI length ({len(ref_azi)}). Survey ID: {ref_survey.id}"
+        )
+    if len(ref_md) != len(ref_easting):
+        raise InvalidSurveyDataError(
+            f"Reference survey data inconsistency: MD length ({len(ref_md)}) != "
+            f"Easting length ({len(ref_easting)}). Survey ID: {ref_survey.id}"
+        )
+
+    # Validate comparison survey array lengths
+    if len(comp_md) != len(comp_inc):
+        raise InvalidSurveyDataError(
+            f"Comparison survey data inconsistency: MD length ({len(comp_md)}) != "
+            f"INC length ({len(comp_inc)}). Survey ID: {comp_survey.id}"
+        )
+    if len(comp_md) != len(comp_easting):
+        raise InvalidSurveyDataError(
+            f"Comparison survey data inconsistency: MD length ({len(comp_md)}) != "
+            f"Easting length ({len(comp_easting)}). Survey ID: {comp_survey.id}"
+        )
+
+    # Continue with delta calculations...
+```
+
+**Error Response Format:**
+```json
+{
+  "error": "Failed to create comparison",
+  "details": "Failed to calculate deltas: Comparison survey data inconsistency: MD length (154) != Easting length (153). Survey ID: 2f003103-bee9-4690-8816-fec51536d68f"
+}
+```
+
+#### Known Issue - Welleng Array Length Mismatch
+**Status:** Under investigation
+**Symptoms:** GTL surveys after QA approval show input arrays (MD, INC, AZI) with 154 elements but output arrays (Easting, Northing, TVD) with 153 elements
+**Impact:** Comparison operations fail with array length validation errors
+**Affected Component:** `welleng_service.py` - Survey calculation and position array generation
+**Investigation:** Manual welleng tests with 10 points produce matching lengths, suggesting issue occurs during QA approval workflow or data persistence
+**Potential Causes:**
+- Data transformation during QA approval process (qa_viewset.py lines 376-605)
+- Tie-on point prepending logic inconsistency
+- Welleng library edge case with specific survey configurations
 
 #### Controller Template
 ```python

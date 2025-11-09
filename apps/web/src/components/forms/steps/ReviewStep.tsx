@@ -80,12 +80,12 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data }) => {
           {renderField('Longitude (Decimal)', data.location.longitude ? `${Number(data.location.longitude).toFixed(8)}°` : null)}
           {renderField('Latitude (DMS)',
             data.location.latitude_degrees !== undefined
-              ? `${data.location.latitude_degrees}° ${data.location.latitude_minutes || 0}' ${data.location.latitude_seconds?.toFixed(3) || 0}"`
+              ? `${data.location.latitude_degrees}° ${data.location.latitude_minutes || 0}' ${data.location.latitude_seconds ? Number(data.location.latitude_seconds).toFixed(3) : 0}"`
               : null
           )}
           {renderField('Longitude (DMS)',
             data.location.longitude_degrees !== undefined
-              ? `${data.location.longitude_degrees}° ${data.location.longitude_minutes || 0}' ${data.location.longitude_seconds?.toFixed(3) || 0}"`
+              ? `${data.location.longitude_degrees}° ${data.location.longitude_minutes || 0}' ${data.location.longitude_seconds ? Number(data.location.longitude_seconds).toFixed(3) : 0}"`
               : null
           )}
           {renderField('Easting (UTM)', data.location.easting ? `${Number(data.location.easting).toFixed(3)} m` : null)}

@@ -42,7 +42,7 @@ export interface CompleteRunFormProps {
   onCancel: () => void;
   isSubmitting?: boolean;
   initialData?: Partial<CompleteRunFormData>;
-  wells?: Array<{ id: string; well_name: string }>;
+  wells?: any[]; // Full Well objects
   error?: Error | null;
 }
 

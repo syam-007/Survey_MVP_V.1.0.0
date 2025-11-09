@@ -14,6 +14,12 @@ class UserNestedSerializer(serializers.Serializer):
     email = serializers.EmailField(read_only=True)
 
 
+class JobNestedSerializer(serializers.Serializer):
+    """Nested serializer for Job in Run responses"""
+    id = serializers.UUIDField(read_only=True)
+    job_number = serializers.CharField(read_only=True)
+
+
 class RunSerializer(serializers.ModelSerializer):
     """Serializer for Run model with nested relationships"""
 
@@ -21,6 +27,7 @@ class RunSerializer(serializers.ModelSerializer):
     depth = DepthSerializer(read_only=True)
     tieon = TieOnSerializer(read_only=True)
     well = WellSerializer(read_only=True)
+    job = JobNestedSerializer(read_only=True)
     user = UserNestedSerializer(read_only=True)
     survey_files = SurveyFileSerializer(many=True, read_only=True)
     survey_files_count = serializers.SerializerMethodField()
@@ -30,7 +37,7 @@ class RunSerializer(serializers.ModelSerializer):
         model = Run
         fields = ('id', 'run_number', 'run_name', 'survey_type', 'run_type', 'vertical_section',
                   'bhc_enabled', 'proposal_direction', 'grid_correction',
-                  'well', 'location', 'depth', 'tieon', 'user', 'survey_files', 'survey_files_count',
+                  'well', 'job', 'location', 'depth', 'tieon', 'user', 'survey_files', 'survey_files_count',
                   'has_tieon', 'created_at', 'updated_at')
         read_only_fields = ('id', 'created_at', 'updated_at', 'user', 'survey_files', 'survey_files_count', 'has_tieon')
 
@@ -62,7 +69,7 @@ class RunCreateSerializer(serializers.ModelSerializer):
         model = Run
         fields = ('id', 'run_number', 'run_name', 'survey_type', 'run_type', 'vertical_section',
                   'bhc_enabled', 'proposal_direction', 'grid_correction',
-                  'well', 'created_at', 'updated_at')
+                  'well', 'job', 'created_at', 'updated_at')
         read_only_fields = ('id', 'created_at', 'updated_at')
 
     def validate_run_number(self, value):

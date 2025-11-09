@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Breadcrumbs, Link as MuiLink } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 
 interface Breadcrumb {
@@ -23,8 +23,15 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   breadcrumbs = [],
   actions,
 }) => {
+  const navigate = useNavigate();
+
+  const handleBreadcrumbClick = (path: string) => () => {
+    console.log('Navigating to:', path);
+    navigate(path);
+  };
+
   return (
-    <Box sx={{ mb: 3 }}>
+    <Box sx={{ mb: 3, position: 'relative', zIndex: 10 }}>
       {breadcrumbs.length > 0 && (
         <Breadcrumbs
           separator={<NavigateNextIcon fontSize="small" />}
@@ -45,10 +52,18 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             return (
               <MuiLink
                 key={index}
-                component={RouterLink}
-                to={crumb.path}
+                component="button"
+                onClick={handleBreadcrumbClick(crumb.path)}
                 underline="hover"
                 color="inherit"
+                sx={{
+                  cursor: 'pointer',
+                  '&:hover': { color: 'primary.main' },
+                  border: 'none',
+                  background: 'none',
+                  padding: 0,
+                  font: 'inherit'
+                }}
               >
                 {crumb.label}
               </MuiLink>

@@ -81,15 +81,60 @@ class SurveyCalculationService:
             # Start timing calculation
             start_time = time.time()
 
-            # Call WellengService to perform calculation
-            result = WellengService.calculate_survey(
-                md=survey_data.md_data,
-                inc=survey_data.inc_data,
-                azi=survey_data.azi_data,
-                tie_on_data=context['tieon'],
-                location_data=context['location'],
-                survey_type=context['survey_type']
-            )
+            # Implement BHC (Bottom Hole Convergence) iterative calculation
+            bhc_enabled = context.get('bhc_enabled', False)
+            proposal_direction = context.get('proposal_direction')
+            updated_proposal_direction = None  # Track updated value for BHC
+
+            if bhc_enabled:
+                logger.info("BHC enabled - performing iterative calculation")
+
+                # Initial calculation with proposal_direction = 0
+                initial_proposal_direction = 0.0
+                logger.info(f"BHC Step 1: Initial calculation with proposal_direction = {initial_proposal_direction}°")
+
+                result = WellengService.calculate_survey(
+                    md=survey_data.md_data,
+                    inc=survey_data.inc_data,
+                    azi=survey_data.azi_data,
+                    tie_on_data=context['tieon'],
+                    location_data=context['location'],
+                    survey_type=context['survey_type'],
+                    vertical_section_azimuth=initial_proposal_direction
+                )
+
+                # Get closure direction from last row
+                closure_direction_last = result['closure_direction'][-1]
+                logger.info(f"BHC Step 2: Closure direction from last point = {closure_direction_last:.6f}°")
+
+                # Recalculate with proposal_direction = closure_direction
+                logger.info(f"BHC Step 3: Recalculating with proposal_direction = {closure_direction_last:.6f}°")
+
+                result = WellengService.calculate_survey(
+                    md=survey_data.md_data,
+                    inc=survey_data.inc_data,
+                    azi=survey_data.azi_data,
+                    tie_on_data=context['tieon'],
+                    location_data=context['location'],
+                    survey_type=context['survey_type'],
+                    vertical_section_azimuth=closure_direction_last
+                )
+
+                # Store the updated proposal direction for BHC
+                updated_proposal_direction = closure_direction_last
+                logger.info(f"BHC calculation completed - converged to {closure_direction_last:.6f}°")
+            else:
+                # Normal calculation (non-BHC)
+                # Call WellengService to perform calculation
+                result = WellengService.calculate_survey(
+                    md=survey_data.md_data,
+                    inc=survey_data.inc_data,
+                    azi=survey_data.azi_data,
+                    tie_on_data=context['tieon'],
+                    location_data=context['location'],
+                    survey_type=context['survey_type'],
+                    vertical_section_azimuth=proposal_direction
+                )
 
             # Calculate duration
             calculation_duration = time.time() - start_time
@@ -119,6 +164,13 @@ class SurveyCalculationService:
                 # Update SurveyFile processing_status to 'completed'
                 survey_file.processing_status = 'completed'
                 survey_file.save(update_fields=['processing_status'])
+
+                # If BHC was enabled, update Run's proposal_direction with the converged value
+                if bhc_enabled and updated_proposal_direction is not None:
+                    run = survey_data.survey_file.run
+                    run.proposal_direction = updated_proposal_direction
+                    run.save(update_fields=['proposal_direction'])
+                    logger.info(f"Updated Run {run.run_number} proposal_direction to {updated_proposal_direction:.6f}° (BHC result)")
 
             logger.info(f"CalculatedSurvey created: {calculated_survey.id}")
 
@@ -314,9 +366,15 @@ class SurveyCalculationService:
 
         logger.debug(f"Extracted calculation context for {survey_type} survey")
 
+        # Get BHC and proposal direction from run
+        bhc_enabled = run.bhc_enabled if hasattr(run, 'bhc_enabled') else False
+        proposal_direction = float(run.proposal_direction) if hasattr(run, 'proposal_direction') and run.proposal_direction is not None else None
+
         return {
             'location': location_data,
             'tieon': tieon_data,
             'depth': depth_data,
             'survey_type': survey_type,
+            'bhc_enabled': bhc_enabled,
+            'proposal_direction': proposal_direction,
         }

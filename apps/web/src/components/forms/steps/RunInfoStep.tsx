@@ -50,7 +50,7 @@ const runInfoSchema = yup.object({
 export interface RunInfoStepProps {
   data: Partial<CreateRunInput>;
   onChange: (data: Partial<CreateRunInput>) => void;
-  wells?: Array<{ id: string; well_name: string }>;
+  wells?: Well[];
 }
 
 /**
@@ -85,6 +85,28 @@ export const RunInfoStep: React.FC<RunInfoStepProps> = ({
 
   // Well selection state
   const [selectedWell, setSelectedWell] = useState<Well | null>(null);
+  const initializedWellIdRef = useRef<string | null>(null);
+
+  // Initialize selected well from data if well ID is provided
+  useEffect(() => {
+    // Only set initial well if we have a well ID and haven't initialized it yet
+    if (data.well && data.well !== initializedWellIdRef.current && wells && wells.length > 0) {
+      console.log('Setting initial well from data.well:', data.well);
+      const well = wells.find(w => w.id === data.well);
+      if (well) {
+        console.log('Found well in wells array:', well);
+        setSelectedWell(well);
+        initializedWellIdRef.current = data.well;
+      } else {
+        console.log('Well not found in wells array');
+      }
+    } else if (!data.well && initializedWellIdRef.current) {
+      // Reset if well ID is cleared
+      console.log('Clearing selected well');
+      setSelectedWell(null);
+      initializedWellIdRef.current = null;
+    }
+  }, [data.well, wells]);
 
   // Watch all form fields and update parent on change
   const formData = watch();
@@ -97,8 +119,18 @@ export const RunInfoStep: React.FC<RunInfoStepProps> = ({
     onChangeRef.current = onChange;
   }, [onChange]);
 
+  // Preserve job field from initial data (hidden field for job association)
+  const dataRef = useRef(data);
   useEffect(() => {
-    onChangeRef.current(formData);
+    dataRef.current = data;
+  }, [data]);
+
+  useEffect(() => {
+    // Include job field from initial data if it exists
+    onChangeRef.current({
+      ...formData,
+      job: dataRef.current.job,
+    });
   }, [formData]);
 
   // Debounced validation for run_number
@@ -318,6 +350,7 @@ export const RunInfoStep: React.FC<RunInfoStepProps> = ({
           helperText={errors.well?.message}
           required
           label="Well"
+          wells={wells}
         />
       </Box>
     </Stack>

@@ -27,6 +27,12 @@ import { WellListPage } from './pages/wells/WellListPage';
 import { WellCreatePage } from './pages/wells/WellCreatePage';
 import { WellDetailPage } from './pages/wells/WellDetailPage';
 import { WellEditPage } from './pages/wells/WellEditPage';
+import { JobListPage } from './pages/jobs/JobListPage';
+import { JobCreatePage } from './pages/jobs/JobCreatePage';
+import { JobDetailPage } from './pages/jobs/JobDetailPage';
+import { JobComparisonPage } from './pages/jobs/JobComparisonPage';
+import { JobAdjustmentPage } from './pages/jobs/JobAdjustmentPage';
+import { ConfigurationPage } from './pages/ConfigurationPage';
 
 // Material-UI theme configuration
 const theme = createTheme({
@@ -64,7 +70,7 @@ function App() {
           <CssBaseline />
           <Router>
           <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/" element={<Navigate to="/jobs" replace />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/unauthorized" element={<UnauthorizedPage />} />
@@ -82,6 +88,54 @@ function App() {
                 <RoleProtectedRoute requiredRole="Admin">
                   <UsersPage />
                 </RoleProtectedRoute>
+              }
+            />
+            <Route
+              path="/jobs"
+              element={
+                <ProtectedRoute>
+                  <JobListPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/jobs/new"
+              element={
+                <RoleProtectedRoute requiredRole="Engineer">
+                  <JobCreatePage />
+                </RoleProtectedRoute>
+              }
+            />
+            <Route
+              path="/jobs/:id"
+              element={
+                <ProtectedRoute>
+                  <JobDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/jobs/:jobId/comparison"
+              element={
+                <ProtectedRoute>
+                  <JobComparisonPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/jobs/:jobId/adjustment"
+              element={
+                <ProtectedRoute>
+                  <JobAdjustmentPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/configuration"
+              element={
+                <ProtectedRoute>
+                  <ConfigurationPage />
+                </ProtectedRoute>
               }
             />
             <Route

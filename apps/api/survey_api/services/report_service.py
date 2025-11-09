@@ -59,10 +59,10 @@ class SurveyReportGenerator:
         doc = SimpleDocTemplate(
             buffer,
             pagesize=A4,
-            rightMargin=0.5*inch,
-            leftMargin=0.5*inch,
-            topMargin=0.5*inch,
-            bottomMargin=0.5*inch
+            rightMargin=0.3*inch,
+            leftMargin=0.3*inch,
+            topMargin=0.3*inch,
+            bottomMargin=0.3*inch
         )
 
         story = []

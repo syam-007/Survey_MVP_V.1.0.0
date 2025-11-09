@@ -5,6 +5,7 @@
  * Shows summary statistics and detailed station-by-station QA status.
  */
 import React from 'react';
+import qaService from '../../services/qaService';
 import {
   Box,
   Paper,
@@ -35,6 +36,7 @@ import {
   Delete as DeleteIcon,
   Undo as UndoIcon,
   DeleteSweep as DeleteSweepIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material';
 
 interface QAStation {
@@ -94,6 +96,7 @@ export const QAResultsSection: React.FC<QAResultsSectionProps> = ({
   const [expanded, setExpanded] = React.useState(true);
   const [deletedStationIndices, setDeletedStationIndices] = React.useState<Set<number>>(new Set());
   const [selectedStations, setSelectedStations] = React.useState<Set<number>>(new Set());
+  const [isDownloadingReport, setIsDownloadingReport] = React.useState(false);
 
   // Extract stations early for use in handlers
   const stations = qaData?.stations || [];
@@ -306,6 +309,34 @@ export const QAResultsSection: React.FC<QAResultsSectionProps> = ({
     }
   };
 
+  // Handle download QA report
+  const handleDownloadReport = async () => {
+    setIsDownloadingReport(true);
+    try {
+      console.log('Downloading QA report for QA ID:', qaData.qa_id);
+
+      // Call the API to download the report
+      const blob = await qaService.downloadQAReport(qaData.qa_id);
+
+      // Create a download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `QA_Report_${qaData.file_name}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download QA report:', error);
+      alert('Failed to download QA report. The backend endpoint may not be ready yet. Please try again later.');
+    } finally {
+      setIsDownloadingReport(false);
+    }
+  };
+
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -473,6 +504,27 @@ export const QAResultsSection: React.FC<QAResultsSectionProps> = ({
           ? '✓ This QA is verified and approved. Survey calculation is complete. You can view the survey details in the Survey Detail tab.'
           : 'This survey has been quality assured. Review the results and click "Approve & Calculate" to proceed with survey calculation.'}
       </Alert>
+
+      {/* Download Report Button - Only visible when QA is approved */}
+      {isApproved && (
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
+          <Button
+            variant="contained"
+            color="primary"
+            size="large"
+            onClick={handleDownloadReport}
+            disabled={isDownloadingReport}
+            startIcon={isDownloadingReport ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
+            sx={{
+              minWidth: 200,
+              py: 1.5,
+              fontSize: '1rem',
+            }}
+          >
+            {isDownloadingReport ? 'Generating Report...' : 'Download QA Report'}
+          </Button>
+        </Box>
+      )}
 
       {/* Alert for deleted stations */}
       {deletedStationIndices.size > 0 && !isApproved && (

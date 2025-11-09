@@ -26,7 +26,7 @@ class RunService:
             QuerySet of Run objects with select_related
         """
         queryset = Run.objects.select_related(
-            'well', 'location', 'depth', 'tieon', 'user'
+            'well', 'job', 'location', 'depth', 'tieon', 'tieon__survey_run_in', 'tieon__hole_section_master', 'user'
         ).prefetch_related('survey_files')
 
         # Apply filters if provided
@@ -62,7 +62,7 @@ class RunService:
             Run.DoesNotExist: If run not found or deleted
         """
         return Run.objects.select_related(
-            'well', 'location', 'depth', 'tieon', 'user'
+            'well', 'job', 'location', 'depth', 'tieon', 'tieon__survey_run_in', 'tieon__hole_section_master', 'user'
         ).prefetch_related('survey_files').get(id=run_id)
 
     @staticmethod
@@ -168,7 +168,7 @@ class RunService:
             QuerySet of matching Run objects
         """
         return Run.objects.select_related(
-            'well', 'location', 'depth', 'user'
+            'well', 'job', 'location', 'depth', 'user'
         ).filter(
             Q(run_number__icontains=query) | Q(run_name__icontains=query)
         )

@@ -47,6 +47,12 @@ export const DashboardPage: React.FC = () => {
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <Button
                 variant="contained"
+                onClick={() => navigate('/jobs')}
+              >
+                Jobs
+              </Button>
+              <Button
+                variant="contained"
                 onClick={() => navigate('/runs')}
               >
                 Runs
@@ -56,6 +62,12 @@ export const DashboardPage: React.FC = () => {
                 onClick={() => navigate('/wells')}
               >
                 Wells
+              </Button>
+              <Button
+                variant="contained"
+                onClick={() => navigate('/configuration')}
+              >
+                Configuration
               </Button>
               {user?.role === 'Admin' && (
                 <Button

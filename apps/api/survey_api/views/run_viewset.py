@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
+from django.http import HttpResponse
 
 from survey_api.models import Run
 from survey_api.serializers.run_serializer import RunSerializer, RunCreateSerializer
@@ -230,3 +231,79 @@ class RunViewSet(viewsets.ModelViewSet):
             result['run_name_exists'] = query.exists()
 
         return Response(result)
+
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    def service_ticket(self, request, pk=None):
+        """Generate and download Service Ticket PDF for a run."""
+        from survey_api.services.service_ticket_report_service import ServiceTicketReportService
+
+        run = self.get_object()
+
+        try:
+            # Generate PDF
+            pdf_buffer = ServiceTicketReportService.generate_service_ticket(run)
+
+            # Create response with PDF
+            response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="Service_Ticket_{run.run_number}.pdf"'
+
+            return response
+
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to generate service ticket: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    def prejob_report(self, request, pk=None):
+        """Generate and download Prejob Report PDF for a run."""
+        from survey_api.services.prejob_report_service import PrejobReportService
+
+        run = self.get_object()
+
+        try:
+            # Get the job associated with this run
+            if not hasattr(run, 'job') or not run.job:
+                return Response(
+                    {'error': 'No job associated with this run'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Generate PDF - returns bytes directly
+            pdf_bytes = PrejobReportService.generate_prejob_report(run.job, run)
+
+            # Create response with PDF
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="Prejob_Report_{run.run_number}.pdf"'
+
+            return response
+
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to generate prejob report: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    def customer_satisfaction(self, request, pk=None):
+        """Generate and download Customer Satisfaction Report PDF for a run."""
+        from survey_api.services.customer_satisfaction_report_service import CustomerSatisfactionReportService
+
+        run = self.get_object()
+
+        try:
+            # Generate PDF
+            pdf_buffer = CustomerSatisfactionReportService.generate_customer_satisfaction_report(run)
+
+            # Create response with PDF
+            response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="Customer_Satisfaction_Report_{run.run_number}.pdf"'
+
+            return response
+
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to generate customer satisfaction report: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

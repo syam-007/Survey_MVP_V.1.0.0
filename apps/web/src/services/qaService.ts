@@ -119,6 +119,17 @@ class QAService {
     });
     return response.data;
   }
+
+  /**
+   * Download QA report as PDF
+   * This will be implemented when the backend template is ready
+   */
+  async downloadQAReport(qaId: string): Promise<Blob> {
+    const response = await this.api.get(`/api/v1/surveys/qa/${qaId}/report/`, {
+      responseType: 'blob', // Important for file download
+    });
+    return response.data;
+  }
 }
 
 const qaServiceInstance = new QAService();

@@ -184,7 +184,7 @@ export const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
           ) : null}
 
           <FormControl fullWidth disabled={isUploading || completedSurveys.length === 0}>
-            <InputLabel>Primary Survey</InputLabel>
+            <InputLabel>Comparative Survey</InputLabel>
             <Select
               value={selectedPrimary}
               onChange={(e) => setSelectedPrimary(e.target.value)}

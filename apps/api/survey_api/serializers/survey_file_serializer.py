@@ -8,13 +8,19 @@ class SurveyFileSerializer(serializers.ModelSerializer):
     survey_data_id = serializers.SerializerMethodField()
     filename = serializers.CharField(source='file_name', read_only=True)
     upload_date = serializers.DateTimeField(source='created_at', read_only=True)
+    data_point_count = serializers.SerializerMethodField()
+    survey_md_range = serializers.SerializerMethodField()
+    calculated_proposal_direction = serializers.SerializerMethodField()
 
     class Meta:
         model = SurveyFile
         fields = ('id', 'file_name', 'filename', 'file_path', 'file_size', 'survey_type',
                   'processing_status', 'calculated_data', 'survey_data_id', 'upload_date', 'created_at', 'survey_role',
-                  'reference_for_survey', 'reference_surveys_count')
-        read_only_fields = ('id', 'created_at', 'processing_status', 'calculated_data', 'reference_surveys_count', 'survey_data_id', 'filename', 'upload_date')
+                  'reference_for_survey', 'reference_surveys_count', 'data_point_count', 'survey_md_range',
+                  'calculated_proposal_direction')
+        read_only_fields = ('id', 'created_at', 'processing_status', 'calculated_data', 'reference_surveys_count',
+                            'survey_data_id', 'filename', 'upload_date', 'data_point_count', 'survey_md_range',
+                            'calculated_proposal_direction')
 
     def get_survey_data_id(self, obj):
         """Get the survey_data ID for navigation"""
@@ -28,6 +34,55 @@ class SurveyFileSerializer(serializers.ModelSerializer):
     def get_reference_surveys_count(self, obj):
         """Get count of reference surveys linked to this primary survey"""
         return obj.reference_surveys.count() if obj.survey_role == 'primary' else 0
+
+    def get_data_point_count(self, obj):
+        """Get the number of survey data points"""
+        try:
+            from survey_api.models import SurveyData
+            survey_data = SurveyData.objects.filter(survey_file=obj).first()
+            if survey_data and hasattr(survey_data, 'md_data') and survey_data.md_data:
+                return len(survey_data.md_data)
+            return None
+        except Exception:
+            return None
+
+    def get_survey_md_range(self, obj):
+        """Get the MD range (from - to) of the survey"""
+        try:
+            from survey_api.models import SurveyData
+            survey_data = SurveyData.objects.filter(survey_file=obj).first()
+            if survey_data and hasattr(survey_data, 'md_data') and survey_data.md_data and len(survey_data.md_data) > 0:
+                return {
+                    'from_md': survey_data.md_data[0],
+                    'to_md': survey_data.md_data[-1]
+                }
+            return None
+        except Exception:
+            return None
+
+    def get_calculated_proposal_direction(self, obj):
+        """
+        Get the final proposal direction used for calculations.
+        For BHC-enabled surveys, this is the updated proposal direction (closure direction).
+        """
+        try:
+            from survey_api.models import SurveyData, CalculatedSurvey
+            survey_data = SurveyData.objects.filter(survey_file=obj).first()
+            if not survey_data:
+                return None
+
+            calculated_survey = CalculatedSurvey.objects.filter(survey_data=survey_data).first()
+            if not calculated_survey:
+                return None
+
+            # Return the vertical_section_azimuth which contains the final proposal direction
+            # For BHC surveys, this will be the updated value (closure direction from last point)
+            if calculated_survey.vertical_section_azimuth is not None:
+                return float(calculated_survey.vertical_section_azimuth)
+
+            return None
+        except Exception:
+            return None
 
     def validate_file_size(self, value):
         """Validate file size is positive"""

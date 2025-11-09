@@ -1,5 +1,12 @@
 from .user import User
+# Master data models
+from .customer import Customer
+from .client import Client
+from .rig import Rig
+from .service import Service
 from .well import Well
+# Job and Run models
+from .job import Job
 from .run import Run
 from .location import Location
 from .depth import Depth
@@ -19,4 +26,32 @@ from .extrapolation import Extrapolation
 from .activity_log import RunActivityLog
 from .quality_check import QualityCheck
 
-__all__ = ['User', 'Well', 'Run', 'Location', 'Depth', 'Survey', 'TieOn', 'SurveyFile', 'SurveyCalculation', 'SurveyData', 'CalculatedSurvey', 'InterpolatedSurvey', 'ComparisonResult', 'HoleSectionMaster', 'SurveyRunInMaster', 'MinimumIdMaster', 'CurveAdjustment', 'Extrapolation', 'RunActivityLog', 'QualityCheck']
+__all__ = [
+    'User',
+    # Master data
+    'Customer',
+    'Client',
+    'Rig',
+    'Service',
+    # Core models
+    'Well',
+    'Job',
+    'Run',
+    'Location',
+    'Depth',
+    'Survey',
+    'TieOn',
+    'SurveyFile',
+    'SurveyCalculation',
+    'SurveyData',
+    'CalculatedSurvey',
+    'InterpolatedSurvey',
+    'ComparisonResult',
+    'HoleSectionMaster',
+    'SurveyRunInMaster',
+    'MinimumIdMaster',
+    'CurveAdjustment',
+    'Extrapolation',
+    'RunActivityLog',
+    'QualityCheck'
+]

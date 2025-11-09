@@ -38,7 +38,7 @@ from survey_api.views.depth_viewset import DepthViewSet
 from survey_api.views.survey_viewset import SurveyViewSet
 from survey_api.views.tieon_viewset import TieOnViewSet
 from survey_api.views.upload_viewset import upload_survey_file, delete_survey_file
-from survey_api.views.qa_viewset import upload_gtl_for_qa, save_qa_approved, delete_qa_record, approve_gtl_qa_temp
+from survey_api.views.qa_viewset import upload_gtl_for_qa, save_qa_approved, delete_qa_record, approve_gtl_qa_temp, download_qc_report
 from survey_api.views.status_viewset import get_survey_status
 from survey_api.views.survey_data_viewset import get_survey_data_detail, generate_survey_report_view, approve_qa_and_calculate
 from survey_api.views.calculation_viewset import CalculationViewSet
@@ -57,7 +57,8 @@ from survey_api.views.comparison_viewset import (
     get_comparison_detail,
     list_comparisons,
     delete_comparison,
-    export_comparison
+    export_comparison,
+    compare_surveys_temp
 )
 from survey_api.views.adjustment_viewset import (
     apply_offset,
@@ -65,7 +66,8 @@ from survey_api.views.adjustment_viewset import (
     redo_adjustment,
     reset_adjustments,
     recalculate_inc_azi,
-    get_current_adjustment
+    get_current_adjustment,
+    adjust_surveys_temp
 )
 from survey_api.views.master_data_viewset import (
     HoleSectionMasterViewSet,
@@ -117,6 +119,7 @@ urlpatterns = [
     path("api/v1/surveys/gtl/qa/temp/<str:temp_qa_id>/approve/", approve_gtl_qa_temp, name="approve_gtl_qa_temp"),
     path("api/v1/surveys/gtl/qa/<uuid:qa_id>/save/", save_qa_approved, name="save_qa_approved"),
     path("api/v1/surveys/gtl/qa/<uuid:qa_id>/delete/", delete_qa_record, name="delete_qa_record"),
+    path("api/v1/surveys/qa/<uuid:qa_id>/report/", download_qc_report, name="download_qc_report"),
 
     # Survey file delete endpoint
     path("api/v1/surveys/files/<uuid:file_id>/delete/", delete_survey_file, name="delete_survey_file"),
@@ -153,6 +156,9 @@ urlpatterns = [
          name="get-reference-survey-detail"),
 
     # Comparison endpoints
+    path("api/v1/comparisons/compare/",
+         compare_surveys_temp,
+         name="compare-surveys-temp"),
     path("api/v1/comparisons/",
          create_comparison,
          name="create-comparison"),
@@ -170,6 +176,9 @@ urlpatterns = [
          name="export-comparison"),
 
     # Adjustment endpoints
+    path("api/v1/adjustments/adjust/",
+         adjust_surveys_temp,
+         name="adjust-surveys-temp"),
     path("api/v1/comparisons/<uuid:comparison_id>/adjustment/current/",
          get_current_adjustment,
          name="get-current-adjustment"),
@@ -188,6 +197,9 @@ urlpatterns = [
     path("api/v1/comparisons/<uuid:comparison_id>/adjustment/recalculate/",
          recalculate_inc_azi,
          name="recalculate-inc-azi"),
+
+    # Job and Master Data endpoints
+    path("api/v1/", include('survey_api.job_urls')),
 
     # Run and Well management endpoints (via router)
     path("api/v1/", include(router.urls)),

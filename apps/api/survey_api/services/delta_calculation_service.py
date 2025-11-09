@@ -56,15 +56,15 @@ class DeltaCalculationService:
             logger.info(f"Calculating deltas: comparison={comparison_survey_id}, reference={reference_survey_id}")
 
             # Load surveys
-            comp_survey = SurveyData.objects.select_related('calculated_survey').get(id=comparison_survey_id)
-            ref_survey = SurveyData.objects.select_related('calculated_survey').get(id=reference_survey_id)
+            comp_survey = SurveyData.objects.select_related('calculated_survey', 'survey_file__run__tieon', 'survey_file__run__well__location').get(id=comparison_survey_id)
+            ref_survey = SurveyData.objects.select_related('calculated_survey', 'survey_file__run__tieon', 'survey_file__run__well__location').get(id=reference_survey_id)
+
+            # Check if either survey needs coordinate calculation (GTL surveys without calculated data)
+            comp_calc = DeltaCalculationService._ensure_coordinates_calculated(comp_survey)
+            ref_calc = DeltaCalculationService._ensure_coordinates_calculated(ref_survey)
 
             # Validate compatibility
             DeltaCalculationService._validate_survey_compatibility(comp_survey, ref_survey)
-
-            # Get calculated data
-            comp_calc = comp_survey.calculated_survey
-            ref_calc = ref_survey.calculated_survey
 
             # Align surveys by MD using ratio_factor as interpolation step
             aligned_data = DeltaCalculationService._align_surveys_by_md(
@@ -147,26 +147,126 @@ class DeltaCalculationService:
             raise DeltaCalculationError(f"Failed to calculate deltas: {str(e)}")
 
     @staticmethod
+    def _ensure_coordinates_calculated(survey: SurveyData):
+        """
+        Ensure survey has calculated coordinates. For GTL surveys, ALWAYS
+        recalculate coordinates on-the-fly using only MD, Inc, Azi to avoid
+        data inconsistencies. For non-GTL surveys, use existing calculated data.
+
+        Args:
+            survey: SurveyData instance
+
+        Returns:
+            CalculatedSurvey instance (existing or newly calculated)
+
+        Raises:
+            InvalidSurveyDataError: If coordinates cannot be calculated
+        """
+        # Check if this is a GTL survey
+        is_gtl_survey = survey.survey_file.survey_type in ['GTL', 'Type 1 - GTL']
+
+        # For GTL surveys, ALWAYS recalculate coordinates from MD, Inc, Azi only
+        # This avoids data inconsistencies and ensures we don't use G(t)/W(t) for comparison
+        if is_gtl_survey:
+            logger.info(f"GTL survey {survey.id} detected - recalculating coordinates from MD, Inc, Azi only")
+        else:
+            # For non-GTL surveys, use existing calculated data if available
+            if hasattr(survey, 'calculated_survey') and survey.calculated_survey:
+                calc_survey = survey.calculated_survey
+                # Verify it has coordinate data and arrays match
+                if (calc_survey.easting and len(calc_survey.easting) > 0 and
+                    len(survey.md_data) == len(calc_survey.easting)):
+                    logger.debug(f"Non-GTL survey {survey.id} already has valid calculated coordinates")
+                    return calc_survey
+
+        # Calculate coordinates on-the-fly
+
+        # Import here to avoid circular dependency
+        from survey_api.services.welleng_service import WellengService
+        from survey_api.models import CalculatedSurvey
+
+        try:
+            # Get tie-on data from run
+            run = survey.survey_file.run
+            if not hasattr(run, 'tieon') or not run.tieon:
+                raise InvalidSurveyDataError(
+                    f"Survey {survey.id} requires tie-on data for coordinate calculation"
+                )
+
+            tieon = run.tieon
+            tie_on_data = {
+                'md': float(tieon.md),
+                'inc': float(tieon.inc),
+                'azi': float(tieon.azi),
+                'tvd': float(tieon.tvd),
+                'northing': float(tieon.latitude),  # TieOn uses 'latitude' for northing
+                'easting': float(tieon.departure)   # TieOn uses 'departure' for easting
+            }
+
+            # Get location data
+            location_data = {'latitude': 0.0, 'longitude': 0.0, 'geodetic_system': 'WGS84'}
+            if hasattr(run, 'well') and run.well and hasattr(run.well, 'location') and run.well.location:
+                location = run.well.location
+                location_data = {
+                    'latitude': float(location.latitude) if location.latitude else 0.0,
+                    'longitude': float(location.longitude) if location.longitude else 0.0,
+                    'geodetic_system': location.geodetic_system or 'WGS84'
+                }
+
+            # Use MD, Inc, Azi from survey data to calculate coordinates
+            md_data = survey.md_data
+            inc_data = survey.inc_data
+            azi_data = survey.azi_data
+
+            logger.info(f"Calculating coordinates for {len(md_data)} survey stations")
+
+            # Calculate using welleng
+            calc_results = WellengService.calculate_survey(
+                md=md_data,
+                inc=inc_data,
+                azi=azi_data,
+                tie_on_data=tie_on_data,
+                location_data=location_data,
+                survey_type=survey.survey_file.survey_type or 'GTL'
+            )
+
+            # Create a temporary CalculatedSurvey object (in-memory, not saved to DB)
+            # This is used only for the comparison calculation
+            calc_survey = CalculatedSurvey(
+                survey_data=survey,
+                easting=calc_results['easting'],
+                northing=calc_results['northing'],
+                tvd=calc_results['tvd'],
+                dls=calc_results.get('dls'),
+                build_rate=calc_results.get('build_rate'),
+                turn_rate=calc_results.get('turn_rate'),
+                vertical_section=calc_results.get('vertical_section'),
+                closure_distance=calc_results.get('closure_distance'),
+                closure_direction=calc_results.get('closure_direction'),
+                calculation_status='calculated'
+            )
+
+            logger.info(f"On-the-fly coordinate calculation completed for survey {survey.id}")
+            return calc_survey
+
+        except Exception as e:
+            logger.error(f"Failed to calculate coordinates on-the-fly: {str(e)}")
+            raise InvalidSurveyDataError(
+                f"Cannot calculate coordinates for survey {survey.id}: {str(e)}"
+            )
+
+    @staticmethod
     def _validate_survey_compatibility(comp_survey: SurveyData, ref_survey: SurveyData):
-        """Validate that surveys are compatible for comparison."""
-        # Check calculated status
-        if not hasattr(comp_survey, 'calculated_survey'):
-            raise InvalidSurveyDataError("Comparison survey has not been calculated")
-        if not hasattr(ref_survey, 'calculated_survey'):
-            raise InvalidSurveyDataError("Reference survey has not been calculated")
+        """
+        Validate that surveys are compatible for comparison.
 
-        if comp_survey.calculated_survey.calculation_status != 'calculated':
-            raise InvalidSurveyDataError("Comparison survey calculation failed or incomplete")
-        if ref_survey.calculated_survey.calculation_status != 'calculated':
-            raise InvalidSurveyDataError("Reference survey calculation failed or incomplete")
-
-        # Check data availability
-        comp_calc = comp_survey.calculated_survey
-        ref_calc = ref_survey.calculated_survey
-
-        if not comp_calc.easting or len(comp_calc.easting) < 2:
+        Note: This validation is called AFTER _ensure_coordinates_calculated,
+        so we can assume coordinates are available if the method didn't raise an error.
+        """
+        # Basic data validation
+        if not comp_survey.md_data or len(comp_survey.md_data) < 2:
             raise InvalidSurveyDataError("Comparison survey has insufficient data points")
-        if not ref_calc.easting or len(ref_calc.easting) < 2:
+        if not ref_survey.md_data or len(ref_survey.md_data) < 2:
             raise InvalidSurveyDataError("Reference survey has insufficient data points")
 
     @staticmethod

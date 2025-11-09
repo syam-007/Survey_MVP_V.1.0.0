@@ -706,3 +706,67 @@ def approve_gtl_qa_temp(request, temp_qa_id):
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def download_qc_report(request, qa_id):
+    """
+    Generate and download QC report PDF for an approved QA check.
+
+    Args:
+        qa_id: UUID of the QualityCheck record
+
+    Returns:
+        200 OK: PDF file
+        404 Not Found: QA record not found
+        400 Bad Request: QA not approved yet
+        500 Internal Server Error: Report generation error
+    """
+    from django.http import FileResponse
+    from survey_api.services.qc_report_service import QCReportService
+
+    try:
+        # Verify QA exists and is approved
+        try:
+            qa_check = QualityCheck.objects.get(id=qa_id)
+        except QualityCheck.DoesNotExist:
+            return Response(
+                {"error": f"QA record with id {qa_id} does not exist"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if qa_check.status != 'approved':
+            return Response(
+                {"error": "QA must be approved before generating report"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        logger.info(f"Generating QC report for QA {qa_id}")
+
+        # Generate PDF
+        pdf_buffer = QCReportService.generate_qc_report(qa_id)
+
+        # Create filename
+        filename = f"QC_Report_{qa_check.file_name.replace('.xlsx', '').replace('.csv', '')}.pdf"
+
+        # Return PDF as file response
+        response = FileResponse(
+            pdf_buffer,
+            content_type='application/pdf',
+            as_attachment=True,
+            filename=filename
+        )
+
+        logger.info(f"QC report generated successfully: {filename}")
+        return response
+
+    except Exception as e:
+        logger.exception(f"Error generating QC report: {e}")
+        return Response(
+            {
+                "error": "Failed to generate QC report",
+                "details": [str(e)]
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

@@ -90,6 +90,40 @@ export const useReferenceSurveyDetail = (id: string) => {
 // ============ Comparison Hooks ============
 
 /**
+ * Hook to calculate comparison without saving to database
+ */
+export const useCalculateComparison = () => {
+  const mutation = useMutation({
+    mutationFn: async ({
+      primarySurveyId,
+      referenceSurveyId,
+      resolution,
+    }: {
+      primarySurveyId: string;
+      referenceSurveyId: string;
+      resolution: number;
+    }) => {
+      return await comparisonsService.calculateComparison(primarySurveyId, referenceSurveyId, resolution);
+    },
+
+    retry: (failureCount, error: any) => {
+      // Don't retry validation errors
+      if (error.message?.includes('validation') || error.message?.includes('overlap')) {
+        return false;
+      }
+      return failureCount < 1;
+    },
+  });
+
+  return {
+    calculateComparison: mutation.mutateAsync,
+    isCalculating: mutation.isPending,
+    error: mutation.error,
+    reset: mutation.reset,
+  };
+};
+
+/**
  * Hook to create a new comparison
  */
 export const useCreateComparison = () => {
