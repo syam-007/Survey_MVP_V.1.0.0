@@ -1,20 +1,18 @@
 # Use Node.js 20 as base image
-FROM node:20-slim
+FROM node:20-slim AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files and install
 COPY package*.json ./
-
-# Install dependencies
 RUN npm install
 
-# Copy project files
+# Copy project files and build
 COPY . .
+RUN npm run build   # <-- production build output (e.g., ./dist)
 
-# Expose port 5173
-EXPOSE 5173
-
-# Start development server
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# Stage 2: Nginx to serve files
+FROM nginx:latest
+COPY --from=builder /app/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

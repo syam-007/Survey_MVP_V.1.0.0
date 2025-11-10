@@ -61,11 +61,10 @@ services:
       context: ./apps/web
       dockerfile: Dockerfile
     container_name: survey-web
-    command: npm run dev
-    volumes:
-      - ./apps/web:/app
     depends_on:
       - api
+    ports:
+      - "80:80"
 
   nginx:
       image: nginx:latest
