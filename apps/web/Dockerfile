@@ -14,5 +14,5 @@ RUN npm run build   # <-- production build output (e.g., ./dist)
 # Stage 2: Nginx to serve files
 FROM nginx:latest
 COPY --from=builder /app/dist /usr/share/nginx/html
-EXPOSE 80
+
 CMD ["nginx", "-g", "daemon off;"]
