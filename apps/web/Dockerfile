@@ -5,11 +5,11 @@ WORKDIR /app
 
 # Copy package files and install
 COPY package*.json ./
-RUN npm install
+# RUN npm install
 
 # Copy project files and build
 COPY . .
-RUN npm run build   # <-- production build output (e.g., ./dist)
+# RUN npm run build   # <-- production build output (e.g., ./dist)
 
 # Stage 2: Nginx to serve files
 FROM nginx:latest
