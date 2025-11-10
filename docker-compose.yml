@@ -63,8 +63,7 @@ services:
     container_name: survey-web
     depends_on:
       - api
-    ports:
-      - "80:80"
+    
 
   nginx:
       image: nginx:latest
