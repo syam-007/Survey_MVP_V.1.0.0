@@ -1,3 +1,4 @@
+import config from '../../config/env';
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -110,7 +111,7 @@ export const JobDetailPage: React.FC = () => {
     setDownloadingPrejob(true);
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:8000/api/v1/jobs/${id}/prejob_report/`, {
+      const response = await fetch(`${config.apiBaseUrl}/api/v1/jobs/${id}/prejob_report/`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -150,7 +151,7 @@ export const JobDetailPage: React.FC = () => {
     setDownloadingSOE(true);
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:8000/api/v1/jobs/${id}/soe_report/`, {
+      const response = await fetch(`${config.apiBaseUrl}/api/v1/jobs/${id}/soe_report/`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

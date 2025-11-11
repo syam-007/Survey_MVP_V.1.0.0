@@ -5,6 +5,7 @@
  */
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import config from '../../config/env';
 import {
   Dialog,
   DialogTitle,
@@ -151,7 +152,7 @@ export const CreateAdjustmentDialog: React.FC<CreateAdjustmentDialogProps> = ({
         primaryFormData.append('survey_type', surveyType);
         primaryFormData.append('survey_role', 'primary');
 
-        const primaryResponse = await fetch('http://localhost:8000/api/v1/surveys/upload/', {
+        const primaryResponse = await fetch(`${config.apiBaseUrl}/api/v1/surveys/upload/`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -185,7 +186,7 @@ export const CreateAdjustmentDialog: React.FC<CreateAdjustmentDialogProps> = ({
         referenceFormData.append('survey_type', surveyType);
         referenceFormData.append('survey_role', 'primary');
 
-        const referenceResponse = await fetch('http://localhost:8000/api/v1/surveys/upload/', {
+        const referenceResponse = await fetch(`${config.apiBaseUrl}/api/v1/surveys/upload/`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -199,7 +200,7 @@ export const CreateAdjustmentDialog: React.FC<CreateAdjustmentDialogProps> = ({
       }
 
       // Create comparison first
-      const comparisonResponse = await fetch(`http://localhost:8000/api/v1/comparisons/`, {
+      const comparisonResponse = await fetch(`${config.apiBaseUrl}/api/v1/comparisons/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,

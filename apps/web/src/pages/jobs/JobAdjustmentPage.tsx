@@ -1,3 +1,4 @@
+import config from '../../config/env';
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -125,7 +126,7 @@ export const JobAdjustmentPage: React.FC = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:8000/api/v1/runs/${runId}/`, {
+      const response = await fetch(`${config.apiBaseUrl}/api/v1/runs/${runId}/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -174,7 +175,7 @@ export const JobAdjustmentPage: React.FC = () => {
 
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8000/api/v1/adjustments/adjust/', {
+      const response = await fetch(`${config.apiBaseUrl}/api/v1/adjustments/adjust/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -239,7 +240,7 @@ export const JobAdjustmentPage: React.FC = () => {
       // Use adjusted survey as base, or original if no adjustments yet
       const baseData = adjustedSurvey || adjustmentData;
 
-      const response = await fetch('http://localhost:8000/api/v1/adjustments/adjust/', {
+      const response = await fetch(`${config.apiBaseUrl}/api/v1/adjustments/adjust/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,3 +1,4 @@
+import config from '../../config/env';
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
@@ -108,7 +109,7 @@ export const JobComparisonPage: React.FC = () => {
   const fetchRunFiles = async (runId: string, setFiles: React.Dispatch<React.SetStateAction<SurveyFile[]>>, setLoading: React.Dispatch<React.SetStateAction<boolean>>) => {
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/runs/${runId}/`, {
+      const response = await fetch(`${config.apiBaseUrl}/api/v1/runs/${runId}/`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
         },
@@ -163,7 +164,7 @@ export const JobComparisonPage: React.FC = () => {
 
     try {
       // Call comparison API endpoint
-      const response = await fetch('http://localhost:8000/api/v1/comparisons/compare/', {
+      const response = await fetch(`${config.apiBaseUrl}/api/v1/comparisons/compare/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -5,8 +5,9 @@
 
 import axios from 'axios';
 import type { HoleSectionMaster, SurveyRunInMaster, MinimumIdMaster } from '../types';
+import config from '../config/env';
 
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const API_BASE_URL = `${config.apiBaseUrl}/api/v1`;
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('access_token');

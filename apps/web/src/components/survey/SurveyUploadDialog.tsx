@@ -6,6 +6,7 @@
  */
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import config from '../../config/env';
 import {
   Dialog,
   DialogTitle,
@@ -98,7 +99,7 @@ export const SurveyUploadDialog: React.FC<SurveyUploadDialogProps> = ({
       formData.append('survey_type', surveyType);
       formData.append('survey_role', surveyRole);
 
-      const response = await fetch('http://localhost:8000/api/v1/surveys/upload/', {
+      const response = await fetch(`${config.apiBaseUrl}/api/v1/surveys/upload/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,

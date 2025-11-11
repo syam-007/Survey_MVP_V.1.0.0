@@ -4,6 +4,7 @@
  * Dialog for duplicate survey calculation - upload file or select existing survey.
  */
 import React, { useState, useCallback } from 'react';
+import config from '../../config/env';
 import {
   Dialog,
   DialogTitle,
@@ -124,7 +125,7 @@ export const DuplicateSurveyDialog: React.FC<DuplicateSurveyDialogProps> = ({
       formData.append('survey_type', surveyType);
       formData.append('survey_role', 'primary');
 
-      const response = await fetch('http://localhost:8000/api/v1/surveys/upload/', {
+      const response = await fetch(`${config.apiBaseUrl}/api/v1/surveys/upload/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,

@@ -1,3 +1,4 @@
+import config from '../../config/env';
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -147,7 +148,7 @@ export const RunDetailPage: React.FC = () => {
     setDownloadingServiceTicket(true);
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:8000/api/v1/runs/${id}/service_ticket/`, {
+      const response = await fetch(`${config.apiBaseUrl}/api/v1/runs/${id}/service_ticket/`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -191,7 +192,7 @@ export const RunDetailPage: React.FC = () => {
     setDownloadingPrejobReport(true);
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:8000/api/v1/runs/${id}/prejob_report/`, {
+      const response = await fetch(`${config.apiBaseUrl}/api/v1/runs/${id}/prejob_report/`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -235,7 +236,7 @@ export const RunDetailPage: React.FC = () => {
     setDownloadingCustomerSatisfaction(true);
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:8000/api/v1/runs/${id}/customer_satisfaction/`, {
+      const response = await fetch(`${config.apiBaseUrl}/api/v1/runs/${id}/customer_satisfaction/`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

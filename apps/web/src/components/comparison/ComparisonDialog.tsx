@@ -4,6 +4,7 @@
  * Dialog for selecting/uploading surveys and creating a comparison.
  */
 import React, { useState, useCallback } from 'react';
+import config from '../../config/env';
 import {
   Dialog,
   DialogTitle,
@@ -110,7 +111,7 @@ export const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
         referenceFormData.append('survey_type', surveyType);
         referenceFormData.append('survey_role', 'primary');
 
-        const referenceResponse = await fetch('http://localhost:8000/api/v1/surveys/upload/', {
+        const referenceResponse = await fetch(`${config.apiBaseUrl}/api/v1/surveys/upload/`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`,

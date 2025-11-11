@@ -4,6 +4,7 @@
  * Displays complete survey results including metadata, calculations, and visualizations.
  * Supports toggling between calculated and interpolated data sources.
  */
+import config from '../../config/env';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -155,7 +156,7 @@ export const SurveyResultsPage: React.FC = () => {
         ...(dataSource === 'interpolated' && { resolution: resolution.toString() })
       });
 
-      const url = `http://localhost:8000/api/v1/surveys/${surveyDataId}/report/?${params}`;
+      const url = `${config.apiBaseUrl}/api/v1/surveys/${surveyDataId}/report/?${params}`;
 
       // Fetch the PDF file
       const response = await fetch(url, {
@@ -204,7 +205,7 @@ export const SurveyResultsPage: React.FC = () => {
     setIsDownloadingServiceTicket(true);
 
     try {
-      const url = `http://localhost:8000/api/v1/runs/${runId}/service_ticket/`;
+      const url = `${config.apiBaseUrl}/api/v1/runs/${runId}/service_ticket/`;
 
       // Fetch the PDF file
       const response = await fetch(url, {

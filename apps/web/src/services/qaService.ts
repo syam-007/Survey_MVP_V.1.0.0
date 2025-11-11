@@ -2,8 +2,9 @@
  * QA Service for GTL survey quality assurance operations
  */
 import axios from 'axios';
+import config from '../config/env';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = config.apiBaseUrl;
 
 export interface QAStation {
   index: number;

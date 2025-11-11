@@ -3,6 +3,7 @@
  *
  * Dialog for survey extrapolation - upload file or select existing survey.
  */
+import config from '../../config/env';
 import React, { useState, useCallback } from 'react';
 import {
   Dialog,
@@ -126,7 +127,7 @@ export const ExtrapolationDialog: React.FC<ExtrapolationDialogProps> = ({
       formData.append('survey_type', surveyType);
       formData.append('survey_role', 'primary');
 
-      const response = await fetch('http://localhost:8000/api/v1/surveys/upload/', {
+      const response = await fetch(`${config.apiBaseUrl}/api/v1/surveys/upload/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
