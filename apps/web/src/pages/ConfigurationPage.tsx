@@ -129,13 +129,19 @@ export const ConfigurationPage: React.FC = () => {
     location: {
       latitude: null,
       longitude: null,
+      latitude_degrees: null,
+      latitude_minutes: null,
+      latitude_seconds: null,
+      longitude_degrees: null,
+      longitude_minutes: null,
+      longitude_seconds: null,
       easting: null,
       northing: null,
       geodetic_datum: 'PSD 93',
       geodetic_system: 'Universal Transverse Mercator',
       map_zone: 'Zone 40N(54E to 60E)',
       north_reference: 'Grid North',
-      central_meridian: 0,
+      central_meridian: null,
     },
   });
   const [rigForm, setRigForm] = useState({ rig_id: '', rig_number: '' });
@@ -338,13 +344,19 @@ export const ConfigurationPage: React.FC = () => {
         location: {
           latitude: well.location?.latitude || null,
           longitude: well.location?.longitude || null,
+          latitude_degrees: well.location?.latitude_degrees || null,
+          latitude_minutes: well.location?.latitude_minutes || null,
+          latitude_seconds: well.location?.latitude_seconds || null,
+          longitude_degrees: well.location?.longitude_degrees || null,
+          longitude_minutes: well.location?.longitude_minutes || null,
+          longitude_seconds: well.location?.longitude_seconds || null,
           easting: well.location?.easting || null,
           northing: well.location?.northing || null,
           geodetic_datum: well.location?.geodetic_datum || 'PSD 93',
           geodetic_system: well.location?.geodetic_system || 'Universal Transverse Mercator',
           map_zone: well.location?.map_zone || 'Zone 40N(54E to 60E)',
           north_reference: well.location?.north_reference || 'Grid North',
-          central_meridian: well.location?.central_meridian || 0,
+          central_meridian: well.location?.central_meridian || null,
         },
       });
     } else {
@@ -355,13 +367,19 @@ export const ConfigurationPage: React.FC = () => {
         location: {
           latitude: null,
           longitude: null,
+          latitude_degrees: null,
+          latitude_minutes: null,
+          latitude_seconds: null,
+          longitude_degrees: null,
+          longitude_minutes: null,
+          longitude_seconds: null,
           easting: null,
           northing: null,
           geodetic_datum: 'PSD 93',
           geodetic_system: 'Universal Transverse Mercator',
           map_zone: 'Zone 40N(54E to 60E)',
           north_reference: 'Grid North',
-          central_meridian: 0,
+          central_meridian: null,
         },
       });
     }
@@ -945,11 +963,12 @@ export const ConfigurationPage: React.FC = () => {
       </Dialog>
 
       {/* Well Dialog */}
-      <Dialog open={wellDialog} onClose={() => setWellDialog(false)} maxWidth="md" fullWidth>
+      <Dialog open={wellDialog} onClose={() => setWellDialog(false)} maxWidth="lg" fullWidth>
         <DialogTitle>{editingWell ? 'Edit Well' : 'Create Well'}</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
             {/* Well Basic Info */}
+            <Typography variant="h6" color="primary">Basic Information</Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
                 fullWidth
@@ -972,133 +991,286 @@ export const ConfigurationPage: React.FC = () => {
             </Box>
 
             {/* Location Section */}
-            <Box>
-              <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
-                Location Information
+            <Typography variant="h6" color="primary">Location Information</Typography>
+
+            {/* Show error if neither coordinate system is provided */}
+            {formErrors.location && (
+              <Typography color="error" variant="caption" sx={{ mb: 2, display: 'block' }}>
+                {formErrors.location}
               </Typography>
+            )}
 
-              {/* Show error if neither coordinate system is provided */}
-              {formErrors.location && (
-                <Typography color="error" variant="caption" sx={{ mb: 2, display: 'block' }}>
-                  {formErrors.location}
-                </Typography>
-              )}
+            {/* Latitude/Longitude Decimal */}
+            <Typography variant="subtitle2">Latitude/Longitude (Decimal)</Typography>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                fullWidth
+                label="Latitude (Decimal)"
+                type="number"
+                value={wellForm.location.latitude ?? ''}
+                onChange={(e) =>
+                  setWellForm({
+                    ...wellForm,
+                    location: {
+                      ...wellForm.location,
+                      latitude: e.target.value ? parseFloat(e.target.value) : null,
+                    },
+                  })
+                }
+                helperText="e.g., 25.123456"
+                inputProps={{ step: 'any' }}
+              />
+              <TextField
+                fullWidth
+                label="Longitude (Decimal)"
+                type="number"
+                value={wellForm.location.longitude ?? ''}
+                onChange={(e) =>
+                  setWellForm({
+                    ...wellForm,
+                    location: {
+                      ...wellForm.location,
+                      longitude: e.target.value ? parseFloat(e.target.value) : null,
+                    },
+                  })
+                }
+                helperText="e.g., 55.123456"
+                inputProps={{ step: 'any' }}
+              />
+            </Box>
 
-              {/* Latitude/Longitude */}
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                Provide either Latitude/Longitude (decimal degrees) OR Easting/Northing (UTM)
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                <TextField
-                  fullWidth
-                  label="Latitude"
-                  type="number"
-                  value={wellForm.location.latitude ?? ''}
-                  onChange={(e) =>
-                    setWellForm({
-                      ...wellForm,
-                      location: {
-                        ...wellForm.location,
-                        latitude: e.target.value ? parseFloat(e.target.value) : null,
-                      },
-                    })
-                  }
-                  helperText="Decimal degrees (-90 to 90)"
-                  inputProps={{ step: 'any' }}
-                />
-                <TextField
-                  fullWidth
-                  label="Longitude"
-                  type="number"
-                  value={wellForm.location.longitude ?? ''}
-                  onChange={(e) =>
-                    setWellForm({
-                      ...wellForm,
-                      location: {
-                        ...wellForm.location,
-                        longitude: e.target.value ? parseFloat(e.target.value) : null,
-                      },
-                    })
-                  }
-                  helperText="Decimal degrees (-180 to 180)"
-                  inputProps={{ step: 'any' }}
-                />
-              </Box>
+            {/* Latitude DMS */}
+            <Typography variant="subtitle2">Latitude (Degrees, Minutes, Seconds)</Typography>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                fullWidth
+                label="Degrees"
+                type="number"
+                value={wellForm.location.latitude_degrees ?? ''}
+                onChange={(e) =>
+                  setWellForm({
+                    ...wellForm,
+                    location: {
+                      ...wellForm.location,
+                      latitude_degrees: e.target.value ? parseFloat(e.target.value) : null,
+                    },
+                  })
+                }
+                inputProps={{ min: 0, max: 90 }}
+              />
+              <TextField
+                fullWidth
+                label="Minutes"
+                type="number"
+                value={wellForm.location.latitude_minutes ?? ''}
+                onChange={(e) =>
+                  setWellForm({
+                    ...wellForm,
+                    location: {
+                      ...wellForm.location,
+                      latitude_minutes: e.target.value ? parseFloat(e.target.value) : null,
+                    },
+                  })
+                }
+                inputProps={{ min: 0, max: 60 }}
+              />
+              <TextField
+                fullWidth
+                label="Seconds"
+                type="number"
+                value={wellForm.location.latitude_seconds ?? ''}
+                onChange={(e) =>
+                  setWellForm({
+                    ...wellForm,
+                    location: {
+                      ...wellForm.location,
+                      latitude_seconds: e.target.value ? parseFloat(e.target.value) : null,
+                    },
+                  })
+                }
+                inputProps={{ min: 0, max: 60, step: 'any' }}
+              />
+            </Box>
 
-              {/* Easting/Northing (UTM) */}
-              <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                <TextField
-                  fullWidth
-                  label="Easting (UTM)"
-                  type="number"
-                  value={wellForm.location.easting ?? ''}
-                  onChange={(e) =>
-                    setWellForm({
-                      ...wellForm,
-                      location: {
-                        ...wellForm.location,
-                        easting: e.target.value ? parseFloat(e.target.value) : null,
-                      },
-                    })
-                  }
-                  helperText="Universal Transverse Mercator Easting"
-                  inputProps={{ step: 'any' }}
-                />
-                <TextField
-                  fullWidth
-                  label="Northing (UTM)"
-                  type="number"
-                  value={wellForm.location.northing ?? ''}
-                  onChange={(e) =>
-                    setWellForm({
-                      ...wellForm,
-                      location: {
-                        ...wellForm.location,
-                        northing: e.target.value ? parseFloat(e.target.value) : null,
-                      },
-                    })
-                  }
-                  helperText="Universal Transverse Mercator Northing"
-                  inputProps={{ step: 'any' }}
-                />
-              </Box>
+            {/* Longitude DMS */}
+            <Typography variant="subtitle2">Longitude (Degrees, Minutes, Seconds)</Typography>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                fullWidth
+                label="Degrees"
+                type="number"
+                value={wellForm.location.longitude_degrees ?? ''}
+                onChange={(e) =>
+                  setWellForm({
+                    ...wellForm,
+                    location: {
+                      ...wellForm.location,
+                      longitude_degrees: e.target.value ? parseFloat(e.target.value) : null,
+                    },
+                  })
+                }
+                inputProps={{ min: 0, max: 180 }}
+              />
+              <TextField
+                fullWidth
+                label="Minutes"
+                type="number"
+                value={wellForm.location.longitude_minutes ?? ''}
+                onChange={(e) =>
+                  setWellForm({
+                    ...wellForm,
+                    location: {
+                      ...wellForm.location,
+                      longitude_minutes: e.target.value ? parseFloat(e.target.value) : null,
+                    },
+                  })
+                }
+                inputProps={{ min: 0, max: 60 }}
+              />
+              <TextField
+                fullWidth
+                label="Seconds"
+                type="number"
+                value={wellForm.location.longitude_seconds ?? ''}
+                onChange={(e) =>
+                  setWellForm({
+                    ...wellForm,
+                    location: {
+                      ...wellForm.location,
+                      longitude_seconds: e.target.value ? parseFloat(e.target.value) : null,
+                    },
+                  })
+                }
+                inputProps={{ min: 0, max: 60, step: 'any' }}
+              />
+            </Box>
 
-              {/* Geodetic System Info (Read-only, shown for reference) */}
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                Geodetic System Defaults:
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
-                <TextField
-                  fullWidth
-                  label="Geodetic Datum"
-                  value={wellForm.location.geodetic_datum}
-                  disabled
-                  size="small"
-                />
-                <TextField
-                  fullWidth
-                  label="Geodetic System"
-                  value={wellForm.location.geodetic_system}
-                  disabled
-                  size="small"
-                />
-              </Box>
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <TextField
-                  fullWidth
-                  label="Map Zone"
-                  value={wellForm.location.map_zone}
-                  disabled
-                  size="small"
-                />
-                <TextField
-                  fullWidth
-                  label="North Reference"
+            {/* UTM Coordinates */}
+            <Typography variant="subtitle2">UTM Coordinates</Typography>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                fullWidth
+                label="Easting"
+                type="number"
+                value={wellForm.location.easting ?? ''}
+                onChange={(e) =>
+                  setWellForm({
+                    ...wellForm,
+                    location: {
+                      ...wellForm.location,
+                      easting: e.target.value ? parseFloat(e.target.value) : null,
+                    },
+                  })
+                }
+                helperText="UTM Easting coordinate"
+                inputProps={{ step: 'any' }}
+              />
+              <TextField
+                fullWidth
+                label="Northing"
+                type="number"
+                value={wellForm.location.northing ?? ''}
+                onChange={(e) =>
+                  setWellForm({
+                    ...wellForm,
+                    location: {
+                      ...wellForm.location,
+                      northing: e.target.value ? parseFloat(e.target.value) : null,
+                    },
+                  })
+                }
+                helperText="UTM Northing coordinate"
+                inputProps={{ step: 'any' }}
+              />
+              <TextField
+                fullWidth
+                label="Central Meridian"
+                type="number"
+                value={wellForm.location.central_meridian ?? ''}
+                onChange={(e) =>
+                  setWellForm({
+                    ...wellForm,
+                    location: {
+                      ...wellForm.location,
+                      central_meridian: e.target.value ? parseFloat(e.target.value) : null,
+                    },
+                  })
+                }
+                helperText="e.g., 57"
+                inputProps={{ step: 'any' }}
+              />
+            </Box>
+
+            {/* Geodetic System Info */}
+            <Typography variant="subtitle2">Geodetic System</Typography>
+            <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+              <TextField
+                fullWidth
+                label="Geodetic Datum"
+                value={wellForm.location.geodetic_datum}
+                onChange={(e) =>
+                  setWellForm({
+                    ...wellForm,
+                    location: {
+                      ...wellForm.location,
+                      geodetic_datum: e.target.value,
+                    },
+                  })
+                }
+                placeholder="PSD 93"
+              />
+              <TextField
+                fullWidth
+                label="Geodetic System"
+                value={wellForm.location.geodetic_system}
+                onChange={(e) =>
+                  setWellForm({
+                    ...wellForm,
+                    location: {
+                      ...wellForm.location,
+                      geodetic_system: e.target.value,
+                    },
+                  })
+                }
+                placeholder="Universal Transverse Mercator"
+              />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                fullWidth
+                label="Map Zone"
+                value={wellForm.location.map_zone}
+                onChange={(e) =>
+                  setWellForm({
+                    ...wellForm,
+                    location: {
+                      ...wellForm.location,
+                      map_zone: e.target.value,
+                    },
+                  })
+                }
+                placeholder="Zone 40N(54E to 60E)"
+              />
+              <FormControl fullWidth>
+                <InputLabel>North Reference</InputLabel>
+                <Select
                   value={wellForm.location.north_reference}
-                  disabled
-                  size="small"
-                />
-              </Box>
+                  label="North Reference"
+                  onChange={(e) =>
+                    setWellForm({
+                      ...wellForm,
+                      location: {
+                        ...wellForm.location,
+                        north_reference: e.target.value as 'True North' | 'Grid North' | 'Magnetic North',
+                      },
+                    })
+                  }
+                >
+                  <MenuItem value="True North">True North</MenuItem>
+                  <MenuItem value="Grid North">Grid North</MenuItem>
+                  <MenuItem value="Magnetic North">Magnetic North</MenuItem>
+                </Select>
+              </FormControl>
             </Box>
           </Box>
         </DialogContent>
