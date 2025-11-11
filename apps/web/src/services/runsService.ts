@@ -7,8 +7,9 @@ import type {
   PaginatedRunResponse,
 } from '../types/run.types';
 import authService from './authService';
+import config from '../config/env';
 
-const API_BASE_URL = (typeof process !== 'undefined' && process.env?.VITE_API_URL) || 'http://localhost:8000';
+const API_BASE_URL = config.apiBaseUrl;
 
 /**
  * Runs Service
@@ -24,8 +25,10 @@ class RunsService {
   }
 
   constructor() {
+    console.log(API_BASE_URL)
     this.api = axios.create({
       baseURL: API_BASE_URL,
+
       headers: {
         'Content-Type': 'application/json',
       },
@@ -90,6 +93,7 @@ class RunsService {
       const response = await this.api.get<PaginatedRunResponse>(
         `/api/v1/runs/?${params.toString()}`
       );
+      console.log(response.data)
 
       return response.data;
     } catch (error: any) {

@@ -1,8 +1,9 @@
 import axios from 'axios';
 import type { AxiosInstance } from 'axios';
 import type { LoginCredentials, RegisterData, AuthResponse, AuthTokens, User } from '../types/auth.types';
+import config from '../config/env';
 
-const API_BASE_URL = (typeof process !== 'undefined' && process.env?.VITE_API_URL) || 'https://survey.task.energy/';
+const API_BASE_URL = config.apiBaseUrl;
 
 class AuthService {
   private api: AxiosInstance;

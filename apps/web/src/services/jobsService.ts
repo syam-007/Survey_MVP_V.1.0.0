@@ -23,8 +23,9 @@ import type {
   PaginatedServiceResponse,
 } from '../types/job.types';
 import authService from './authService';
+import config from '../config/env';
 
-const API_BASE_URL = (typeof process !== 'undefined' && process.env?.VITE_API_URL) || 'http://localhost:8000';
+const API_BASE_URL = config.apiBaseUrl;
 
 /**
  * Jobs Service
@@ -34,6 +35,7 @@ class JobsService {
   private api: AxiosInstance;
 
   constructor() {
+    console.log(API_BASE_URL)
     this.api = axios.create({
       baseURL: API_BASE_URL,
       headers: {
@@ -80,6 +82,7 @@ class JobsService {
    * Fetch jobs with optional filters, search, and pagination
    */
   async getJobs(filters?: JobFilters): Promise<PaginatedJobResponse> {
+    console.log("jobs called")
     const params: Record<string, any> = {};
 
     if (filters) {
@@ -98,7 +101,9 @@ class JobsService {
     }
 
     const response = await this.api.get<PaginatedJobResponse>('/api/v1/jobs/', { params });
+    console.log(response.data)
     return response.data;
+   
   }
 
   /**

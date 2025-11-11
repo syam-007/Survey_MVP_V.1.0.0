@@ -6,8 +6,11 @@ import type {
   PaginatedRunResponse,
 } from '../types/run.types';
 import type { RootState } from './store';
+import config from '../config/env';
 
-const API_BASE_URL = (typeof process !== 'undefined' && process.env?.VITE_API_URL) || 'http://localhost:8000';
+const API_BASE_URL = config.apiBaseUrl;
+
+console.log('🔧 RunsSlice - API_BASE_URL:', API_BASE_URL);
 
 /**
  * Runs API Slice using RTK Query

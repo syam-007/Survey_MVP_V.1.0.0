@@ -1,8 +1,9 @@
 import axios from 'axios';
 import type { AxiosInstance } from 'axios';
 import authService from './authService';
+import config from '../config/env';
 
-const API_BASE_URL = (typeof process !== 'undefined' && process.env?.VITE_API_URL) || 'http://localhost:8000';
+const API_BASE_URL = config.apiBaseUrl;
 
 export interface ActivityLog {
   id: string;

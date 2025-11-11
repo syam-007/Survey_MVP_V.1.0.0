@@ -6,8 +6,9 @@ import type {
   UpdateSurveyInput,
 } from '../types/survey.types';
 import authService from './authService';
+import config from '../config/env';
 
-const API_BASE_URL = (typeof process !== 'undefined' && process.env?.VITE_API_URL) || 'http://localhost:8000';
+const API_BASE_URL = config.apiBaseUrl;
 
 /**
  * Surveys Service

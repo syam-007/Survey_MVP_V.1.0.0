@@ -22,8 +22,12 @@ import type {
   PaginatedServiceResponse,
 } from '../types/job.types';
 import type { RootState } from './store';
+import config from '../config/env';
 
-const API_BASE_URL = (typeof process !== 'undefined' && process.env?.VITE_API_URL) || 'http://localhost:8000';
+const API_BASE_URL = config.apiBaseUrl;
+
+console.log('🔧 JobsSlice - API_BASE_URL:', API_BASE_URL);
+console.log('🔧 JobsSlice - Full base URL:', `${API_BASE_URL}/api/v1`);
 
 /**
  * Jobs API Slice using RTK Query
@@ -38,6 +42,10 @@ export const jobsApi = createApi({
       if (token) {
         headers.set('Authorization', `Bearer ${token}`);
       }
+      console.log('🔧 JobsSlice - Making request with headers:', {
+        Authorization: headers.get('Authorization')?.substring(0, 20) + '...',
+        baseUrl: `${API_BASE_URL}/api/v1`,
+      });
       return headers;
     },
   }),

@@ -18,7 +18,8 @@
       "Bash(../../venv/Scripts/python.exe manage.py test:*)",
       "Bash(python -m pip install:*)",
       "Bash(python:*)",
-      "Bash(../../venv/Scripts/python.exe manage.py makemigrations:*)"
+      "Bash(../../venv/Scripts/python.exe manage.py makemigrations:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []
