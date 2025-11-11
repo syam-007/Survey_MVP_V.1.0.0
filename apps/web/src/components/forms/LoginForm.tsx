@@ -98,7 +98,7 @@ export const LoginForm: React.FC = () => {
         {loading ? <CircularProgress size={24} /> : 'Login'}
       </Button>
 
-      <Typography variant="body2" textAlign="center" sx={{ mt: 2 }}>
+      {/* <Typography variant="body2" textAlign="center" sx={{ mt: 2 }}>
         Don't have an account?{' '}
         <MuiLink
           component="button"
@@ -110,7 +110,7 @@ export const LoginForm: React.FC = () => {
         >
           Register here
         </MuiLink>
-      </Typography>
+      </Typography> */}
     </Box>
   );
 };
