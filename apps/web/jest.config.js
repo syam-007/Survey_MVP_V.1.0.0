@@ -11,7 +11,7 @@ export default {
   globals: {
     'import.meta': {
       env: {
-        VITE_API_URL: 'https://survey.task.energy/',
+        VITE_API_URL: 'https://survey.task.energy',
       },
     },
   },
