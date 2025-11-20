@@ -1,10 +1,13 @@
 import React from 'react';
 import { Box, Container, Typography, Button, Paper } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { useAppDispatch, useAppSelector } from '../stores/hooks';
 import { logoutUser } from '../stores/authSlice';
 import { useNavigate } from 'react-router-dom';
+import { LanguageSwitcher } from '../components/common/LanguageSwitcher';
 
 export const DashboardPage: React.FC = () => {
+  const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { user } = useAppSelector((state) => state.auth);
@@ -18,63 +21,66 @@ export const DashboardPage: React.FC = () => {
     <Container maxWidth="lg">
       <Box sx={{ my: 4 }}>
         <Paper elevation={2} sx={{ p: 4 }}>
-          <Typography variant="h3" component="h1" gutterBottom>
-            Dashboard
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h3" component="h1">
+              {t('navigation.dashboard')}
+            </Typography>
+            <LanguageSwitcher />
+          </Box>
 
           <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
-            Welcome, {user?.first_name || user?.username}!
+            {t('common.welcome')}, {user?.first_name || user?.username}!
           </Typography>
 
           <Box sx={{ mt: 2 }}>
             <Typography variant="body1">
-              <strong>Email:</strong> {user?.email}
+              <strong>{t('auth.email')}:</strong> {user?.email}
             </Typography>
             <Typography variant="body1">
-              <strong>Username:</strong> {user?.username}
+              <strong>{t('auth.username')}:</strong> {user?.username}
             </Typography>
             {user?.first_name && (
               <Typography variant="body1">
-                <strong>Name:</strong> {user.first_name} {user.last_name}
+                <strong>{t('common.name')}:</strong> {user.first_name} {user.last_name}
               </Typography>
             )}
           </Box>
 
           <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Typography variant="h6" gutterBottom>
-              Navigation
+              {t('navigation.navigation')}
             </Typography>
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <Button
                 variant="contained"
                 onClick={() => navigate('/jobs')}
               >
-                Jobs
+                {t('navigation.jobs')}
               </Button>
               <Button
                 variant="contained"
                 onClick={() => navigate('/runs')}
               >
-                Runs
+                {t('navigation.runs')}
               </Button>
               <Button
                 variant="contained"
                 onClick={() => navigate('/wells')}
               >
-                Wells
+                {t('navigation.wells')}
               </Button>
               <Button
                 variant="contained"
                 onClick={() => navigate('/configuration')}
               >
-                Configuration
+                {t('navigation.configuration')}
               </Button>
               {user?.role === 'Admin' && (
                 <Button
                   variant="contained"
                   onClick={() => navigate('/users')}
                 >
-                  Users
+                  {t('navigation.users')}
                 </Button>
               )}
             </Box>
@@ -86,7 +92,7 @@ export const DashboardPage: React.FC = () => {
             onClick={handleLogout}
             sx={{ mt: 3 }}
           >
-            Logout
+            {t('navigation.logout')}
           </Button>
         </Paper>
       </Box>

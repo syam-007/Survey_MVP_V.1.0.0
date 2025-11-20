@@ -46,6 +46,9 @@ export const useSurveyPlotData = (
       setIsLoading(true);
       setError(null);
 
+      // Clear previous data to ensure fresh fetch
+      setData(null);
+
       try {
         // Fetch survey data based on source
         // Note: surveyDataId parameter is actually the calculated survey ID from the API response
@@ -96,6 +99,14 @@ export const useSurveyPlotData = (
               closure_direction: interpResult.closure_direction_interpolated || [],
               pointCount: interpResult.point_count || 0
             };
+
+            // Debug logging
+            console.log('=== INTERPOLATION DATA RECEIVED ===');
+            console.log('MD array length:', interpResult.md_interpolated?.length || 0);
+            console.log('First MD:', interpResult.md_interpolated?.[0]);
+            console.log('Last MD:', interpResult.md_interpolated?.[interpResult.md_interpolated?.length - 1]);
+            console.log('Last 3 MDs:', interpResult.md_interpolated?.slice(-3));
+
             // Set isSaved based on API response
             setIsSaved(interpResult.is_saved === true);
           } catch (interpError) {

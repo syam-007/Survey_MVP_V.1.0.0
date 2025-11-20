@@ -1,7 +1,9 @@
+import { useMemo, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { store } from './stores/store';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -33,19 +35,7 @@ import { JobDetailPage } from './pages/jobs/JobDetailPage';
 import { JobComparisonPage } from './pages/jobs/JobComparisonPage';
 import { JobAdjustmentPage } from './pages/jobs/JobAdjustmentPage';
 import { ConfigurationPage } from './pages/ConfigurationPage';
-
-// Material-UI theme configuration
-const theme = createTheme({
-  palette: {
-    mode: 'light',
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-  },
-});
+import './i18n/config';
 
 // Create QueryClient instance with default options
 const queryClient = new QueryClient({
@@ -62,13 +52,38 @@ const queryClient = new QueryClient({
   }
 });
 
-function App() {
+function AppContent() {
+  const { i18n } = useTranslation();
+
+  // Create theme based on current language direction
+  const theme = useMemo(
+    () =>
+      createTheme({
+        direction: i18n.language === 'ar' ? 'rtl' : 'ltr',
+        palette: {
+          mode: 'light',
+          primary: {
+            main: '#1976d2',
+          },
+          secondary: {
+            main: '#dc004e',
+          },
+        },
+      }),
+    [i18n.language]
+  );
+
+  // Update document direction and language attributes
+  useEffect(() => {
+    const dir = i18n.language === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.dir = dir;
+    document.documentElement.lang = i18n.language;
+  }, [i18n.language]);
+
   return (
-    <Provider store={store}>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <Router>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Router>
           <Routes>
             <Route path="/" element={<Navigate to="/jobs" replace />} />
             <Route path="/login" element={<LoginPage />} />
@@ -283,8 +298,16 @@ function App() {
               }
             />
           </Routes>
-        </Router>
-        </ThemeProvider>
+      </Router>
+    </ThemeProvider>
+  );
+}
+
+function App() {
+  return (
+    <Provider store={store}>
+      <QueryClientProvider client={queryClient}>
+        <AppContent />
       </QueryClientProvider>
     </Provider>
   );

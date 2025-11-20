@@ -49,6 +49,17 @@ export const SurveyResultsPage: React.FC = () => {
   const [startMD, setStartMD] = useState<number | undefined>(undefined);
   const [endMD, setEndMD] = useState<number | undefined>(undefined);
   const [calculatedSurveyId, setCalculatedSurveyId] = useState<string | null>(null);
+
+  // Handler for data source changes - reset interpolation params when switching to calculated
+  const handleDataSourceChange = (newDataSource: 'calculated' | 'interpolated') => {
+    setDataSource(newDataSource);
+    // Reset interpolation parameters when switching to calculated to ensure clean state
+    if (newDataSource === 'calculated') {
+      setStartMD(undefined);
+      setEndMD(undefined);
+      setResolution(5);
+    }
+  };
   const [isDownloadingReport, setIsDownloadingReport] = useState(false);
   const [isDownloadingServiceTicket, setIsDownloadingServiceTicket] = useState(false);
   const [qaData, setQaData] = useState<QAData | null>(null);
@@ -425,7 +436,7 @@ export const SurveyResultsPage: React.FC = () => {
               <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
                 <DataSourceToggle
                   value={dataSource}
-                  onChange={setDataSource}
+                  onChange={handleDataSourceChange}
                   calculatedCount={metadata.calculatedCount}
                   interpolatedCount={metadata.interpolatedCount}
                 />

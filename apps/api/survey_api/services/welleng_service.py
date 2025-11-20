@@ -129,9 +129,19 @@ class WellengService:
             logger.debug(f"Positions calculated: {len(northing_array)} points")
 
             # Calculate trajectory metrics
+            # Note: DLS, build_rate, turn_rate are calculated between consecutive points
+            # So they have one less element than MD. Prepend None to match MD length.
             dls_array = survey.dls
             build_rate_array = survey.build_rate
             turn_rate_array = survey.turn_rate
+
+            # CRITICAL FIX: Pad arrays if they're shorter than MD array
+            if len(dls_array) < len(md_array):
+                logger.info(f"Padding DLS array: {len(dls_array)} -> {len(md_array)}")
+                # Append NaN to match MD length (last point has no DLS to next station)
+                dls_array = np.append(dls_array, np.nan)
+                build_rate_array = np.append(build_rate_array, np.nan)
+                turn_rate_array = np.append(turn_rate_array, np.nan)
 
             # Calculate Vertical Section
             # Use provided azimuth or default to tie-on azimuth
@@ -176,6 +186,28 @@ class WellengService:
             vertical_section = [None if np.isnan(x) else float(x) for x in vertical_section_array]
 
             logger.info(f"Welleng calculation completed successfully for {len(md)} points")
+
+            # CRITICAL: Verify all arrays have the same length
+            array_lengths = {
+                'md': len(md),
+                'easting': len(easting),
+                'northing': len(northing),
+                'tvd': len(tvd),
+                'dls': len(dls),
+                'build_rate': len(build_rate),
+                'turn_rate': len(turn_rate),
+                'vertical_section': len(vertical_section),
+                'closure_distance': len(closure_distance_list),
+                'closure_direction': len(closure_direction_list),
+            }
+
+            logger.info(f"Array lengths: {array_lengths}")
+
+            # Check if all arrays have the same length
+            if len(set(array_lengths.values())) > 1:
+                logger.error(f"ARRAY LENGTH MISMATCH DETECTED! Arrays: {array_lengths}")
+                logger.error(f"Input MD range: {md[0]} to {md[-1]}")
+                logger.error(f"Expected length: {len(md)}")
 
             # Return results
             return {
@@ -323,20 +355,31 @@ class WellengService:
             interpolated_md_list = [tie_on_md]
 
             # Generate interpolated points from start_md to end_md with given resolution
-            # Use numpy arange for better precision and to ensure endpoint is included
-            num_points = int((interpolation_end_md - interpolation_start_md) / resolution) + 1
-            generated_points = np.linspace(interpolation_start_md, interpolation_end_md, num_points)
+            # Use np.arange to generate points at regular intervals
+            # Then ALWAYS add the final depth point to ensure it's included
+            current_md = interpolation_start_md
 
-            # Add generated points, skipping any that are too close to tie-on
-            for current_md in generated_points:
-                # Only add if not duplicate of tie-on point
-                if abs(current_md - tie_on_md) > 0.01:
+            # Add points at regular intervals (skipping duplicates of tie-on)
+            epsilon = 0.001  # Small tolerance for floating point comparison
+            while current_md < interpolation_end_md + epsilon:
+                # Only add if not duplicate of tie-on point and within valid range
+                if abs(current_md - tie_on_md) > 0.01 and current_md <= interpolation_end_md + epsilon:
                     interpolated_md_list.append(float(current_md))
+                current_md += resolution
+
+            # CRITICAL FIX: Always ensure the final depth point is included as the last point
+            # Remove the last point if it's very close to end_md (within 0.01), then add end_md exactly
+            if len(interpolated_md_list) > 1 and abs(interpolated_md_list[-1] - interpolation_end_md) < 0.01:
+                interpolated_md_list[-1] = float(interpolation_end_md)  # Replace with exact value
+            elif len(interpolated_md_list) == 0 or abs(interpolated_md_list[-1] - interpolation_end_md) > 0.01:
+                interpolated_md_list.append(float(interpolation_end_md))  # Add endpoint
 
             interpolated_md = np.array(interpolated_md_list)
 
             print(f"[INTERPOLATION] Generated {len(interpolated_md)} points from {interpolated_md[0]:.2f}m to {interpolated_md[-1]:.2f}m")
             print(f"[INTERPOLATION] First 3 MD values: {interpolated_md[:min(3, len(interpolated_md))]}")
+            print(f"[INTERPOLATION] Last 3 MD values: {interpolated_md[-min(3, len(interpolated_md)):]}")
+            print(f"[INTERPOLATION] ENDPOINT CHECK: Expected={interpolation_end_md:.2f}m, Got={interpolated_md[-1]:.2f}m, Match={abs(interpolated_md[-1] - interpolation_end_md) < 0.01}")
 
             # Interpolate Inc and Azi directly from original calculated data to our exact MD points
             from scipy.interpolate import interp1d
@@ -409,6 +452,13 @@ class WellengService:
 
             logger.debug(f"Final interpolated closure: Distance={closure_distance_list[-1]:.2f}m, Direction={closure_direction_list[-1]:.2f}°")
 
+            # CRITICAL FIX: Pad DLS if it's shorter than MD
+            dls_array = interpolated_survey.dls
+            if len(dls_array) < len(interpolated_survey.md):
+                logger.info(f"Padding interpolated DLS array: {len(dls_array)} -> {len(interpolated_survey.md)}")
+                # Append NaN to match MD length (last point has no DLS to next station)
+                dls_array = np.append(dls_array, np.nan)
+
             # Convert to lists and handle NaN
             # Round northing and easting to 2 decimal places for consistency
             md_list = [None if np.isnan(x) else float(x) for x in interpolated_survey.md]
@@ -417,11 +467,32 @@ class WellengService:
             easting_list = [None if np.isnan(x) else round(float(x), 2) for x in interpolated_survey.e]
             northing_list = [None if np.isnan(x) else round(float(x), 2) for x in interpolated_survey.n]
             tvd_list = [None if np.isnan(x) else float(x) for x in interpolated_survey.tvd]
-            dls_list = [None if np.isnan(x) else float(x) for x in interpolated_survey.dls]
+            dls_list = [None if np.isnan(x) else float(x) for x in dls_array]
             vertical_section_list = [None if np.isnan(x) else float(x) for x in interpolated_survey.vertical_section]
 
-            print(f"[INTERPOLATION] Completed: {len(md_list)} points, returning first MD={md_list[0]}")
+            print(f"[INTERPOLATION] Completed: {len(md_list)} points, returning first MD={md_list[0]}, last MD={md_list[-1]}")
             logger.info(f"Interpolation completed: {len(md_list)} points with vertical section and closure")
+
+            # CRITICAL: Verify all arrays have the same length
+            array_lengths = {
+                'md': len(md_list),
+                'inc': len(inc_list),
+                'azi': len(azi_list),
+                'easting': len(easting_list),
+                'northing': len(northing_list),
+                'tvd': len(tvd_list),
+                'dls': len(dls_list),
+                'vertical_section': len(vertical_section_list),
+                'closure_distance': len(closure_distance_list),
+                'closure_direction': len(closure_direction_list),
+            }
+
+            logger.info(f"Interpolation array lengths: {array_lengths}")
+
+            # Check if all arrays have the same length
+            if len(set(array_lengths.values())) > 1:
+                logger.error(f"INTERPOLATION ARRAY LENGTH MISMATCH! Arrays: {array_lengths}")
+                logger.error(f"Interpolated MD range: {md_list[0]} to {md_list[-1]}")
 
             return {
                 'md': md_list,

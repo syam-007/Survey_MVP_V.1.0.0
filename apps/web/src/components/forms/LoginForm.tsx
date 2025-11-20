@@ -8,11 +8,13 @@ import {
   CircularProgress,
   Link as MuiLink,
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { useAppDispatch, useAppSelector } from '../../stores/hooks';
 import { loginUser, clearError } from '../../stores/authSlice';
 import { useNavigate } from 'react-router-dom';
 
 export const LoginForm: React.FC = () => {
+  const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { loading, error } = useAppSelector((state) => state.auth);
@@ -28,12 +30,12 @@ export const LoginForm: React.FC = () => {
 
     // Validation
     if (!email || !password) {
-      setValidationError('Please fill in all fields');
+      setValidationError(t('validation.required'));
       return;
     }
 
     if (!/\S+@\S+\.\S+/.test(email)) {
-      setValidationError('Please enter a valid email');
+      setValidationError(t('validation.invalidEmail'));
       return;
     }
 
@@ -61,7 +63,7 @@ export const LoginForm: React.FC = () => {
       }}
     >
       <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
-        Login
+        {t('auth.loginTitle')}
       </Typography>
 
       {(error || validationError) && (
@@ -69,7 +71,7 @@ export const LoginForm: React.FC = () => {
       )}
 
       <TextField
-        label="Email"
+        label={t('auth.email')}
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
@@ -79,7 +81,7 @@ export const LoginForm: React.FC = () => {
       />
 
       <TextField
-        label="Password"
+        label={t('auth.password')}
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
@@ -95,11 +97,11 @@ export const LoginForm: React.FC = () => {
         disabled={loading}
         sx={{ mt: 1 }}
       >
-        {loading ? <CircularProgress size={24} /> : 'Login'}
+        {loading ? <CircularProgress size={24} /> : t('auth.login')}
       </Button>
 
       {/* <Typography variant="body2" textAlign="center" sx={{ mt: 2 }}>
-        Don't have an account?{' '}
+        {t('auth.dontHaveAccount')}{' '}
         <MuiLink
           component="button"
           variant="body2"
@@ -108,7 +110,7 @@ export const LoginForm: React.FC = () => {
             navigate('/register');
           }}
         >
-          Register here
+          {t('auth.register')}
         </MuiLink>
       </Typography> */}
     </Box>

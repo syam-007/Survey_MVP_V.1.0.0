@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Typography, Breadcrumbs, Link as MuiLink } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface Breadcrumb {
   label: string;
@@ -83,7 +84,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           {title}
         </Typography>
 
-        {actions && <Box>{actions}</Box>}
+        <Box display="flex" alignItems="center" gap={1}>
+          {actions && <Box>{actions}</Box>}
+          <LanguageSwitcher />
+        </Box>
       </Box>
     </Box>
   );

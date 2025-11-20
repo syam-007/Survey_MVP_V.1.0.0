@@ -68,6 +68,12 @@ export const SurveyDataTable: React.FC<SurveyDataTableProps> = ({
       closure_direction: surveyData.closure_direction?.[index] ?? 0,
     }));
 
+    // Debug logging
+    console.log('=== TABLE DATA PREPARED ===');
+    console.log('surveyData.md length:', surveyData.md.length);
+    console.log('rows created:', rows.length);
+    console.log('Last row MD:', rows[rows.length - 1]?.md);
+
     // Sort
     const sortedRows = [...rows].sort((a, b) => {
       const aValue = a[orderBy];
@@ -78,13 +84,33 @@ export const SurveyDataTable: React.FC<SurveyDataTableProps> = ({
       return 0;
     });
 
+    console.log('sortedRows length:', sortedRows.length);
+    console.log('Last sorted row MD:', sortedRows[sortedRows.length - 1]?.md);
+
     return sortedRows;
   }, [surveyData, order, orderBy]);
 
   // Paginated data
   const paginatedData = useMemo(() => {
+    // If rowsPerPage is -1 (meaning "All"), return all data without slicing
+    if (rowsPerPage === -1) {
+      console.log('=== PAGINATION (ALL) ===');
+      console.log('Showing all rows:', tableData.length);
+      console.log('Last row MD:', tableData[tableData.length - 1]?.md);
+      return tableData;
+    }
+
     const startIndex = page * rowsPerPage;
-    return tableData.slice(startIndex, startIndex + rowsPerPage);
+    const paginated = tableData.slice(startIndex, startIndex + rowsPerPage);
+
+    console.log('=== PAGINATION ===');
+    console.log('page:', page, 'rowsPerPage:', rowsPerPage);
+    console.log('startIndex:', startIndex, 'endIndex:', startIndex + rowsPerPage);
+    console.log('tableData.length:', tableData.length);
+    console.log('paginated.length:', paginated.length);
+    console.log('Last paginated row MD:', paginated[paginated.length - 1]?.md);
+
+    return paginated;
   }, [tableData, page, rowsPerPage]);
 
   // Handle page change

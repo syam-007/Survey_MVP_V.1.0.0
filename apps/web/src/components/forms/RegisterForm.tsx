@@ -8,11 +8,13 @@ import {
   CircularProgress,
   Link as MuiLink,
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { useAppDispatch, useAppSelector } from '../../stores/hooks';
 import { registerUser, clearError } from '../../stores/authSlice';
 import { useNavigate } from 'react-router-dom';
 
 export const RegisterForm: React.FC = () => {
+  const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { loading, error } = useAppSelector((state) => state.auth);
@@ -41,22 +43,22 @@ export const RegisterForm: React.FC = () => {
       !formData.password ||
       !formData.password_confirm
     ) {
-      setValidationError('Please fill in all required fields');
+      setValidationError(t('validation.required'));
       return false;
     }
 
     if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      setValidationError('Please enter a valid email');
+      setValidationError(t('validation.invalidEmail'));
       return false;
     }
 
     if (formData.password.length < 8) {
-      setValidationError('Password must be at least 8 characters');
+      setValidationError(t('validation.minLength', { min: 8 }));
       return false;
     }
 
     if (formData.password !== formData.password_confirm) {
-      setValidationError('Passwords do not match');
+      setValidationError(t('validation.passwordMismatch'));
       return false;
     }
 
@@ -96,7 +98,7 @@ export const RegisterForm: React.FC = () => {
       }}
     >
       <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
-        Register
+        {t('auth.registerTitle')}
       </Typography>
 
       {(error || validationError) && (
@@ -104,7 +106,7 @@ export const RegisterForm: React.FC = () => {
       )}
 
       <TextField
-        label="Username"
+        label={t('auth.username')}
         name="username"
         value={formData.username}
         onChange={handleChange}
@@ -114,7 +116,7 @@ export const RegisterForm: React.FC = () => {
       />
 
       <TextField
-        label="Email"
+        label={t('auth.email')}
         name="email"
         type="email"
         value={formData.email}
@@ -125,7 +127,7 @@ export const RegisterForm: React.FC = () => {
       />
 
       <TextField
-        label="First Name"
+        label={t('auth.firstName')}
         name="first_name"
         value={formData.first_name}
         onChange={handleChange}
@@ -134,7 +136,7 @@ export const RegisterForm: React.FC = () => {
       />
 
       <TextField
-        label="Last Name"
+        label={t('auth.lastName')}
         name="last_name"
         value={formData.last_name}
         onChange={handleChange}
@@ -143,7 +145,7 @@ export const RegisterForm: React.FC = () => {
       />
 
       <TextField
-        label="Password"
+        label={t('auth.password')}
         name="password"
         type="password"
         value={formData.password}
@@ -151,11 +153,11 @@ export const RegisterForm: React.FC = () => {
         required
         fullWidth
         disabled={loading}
-        helperText="Minimum 8 characters"
+        helperText={t('validation.minLength', { min: 8 })}
       />
 
       <TextField
-        label="Confirm Password"
+        label={t('auth.confirmPassword')}
         name="password_confirm"
         type="password"
         value={formData.password_confirm}
@@ -172,11 +174,11 @@ export const RegisterForm: React.FC = () => {
         disabled={loading}
         sx={{ mt: 1 }}
       >
-        {loading ? <CircularProgress size={24} /> : 'Register'}
+        {loading ? <CircularProgress size={24} /> : t('auth.register')}
       </Button>
 
       <Typography variant="body2" textAlign="center" sx={{ mt: 2 }}>
-        Already have an account?{' '}
+        {t('auth.alreadyHaveAccount')}{' '}
         <MuiLink
           component="button"
           variant="body2"
@@ -185,7 +187,7 @@ export const RegisterForm: React.FC = () => {
             navigate('/login');
           }}
         >
-          Login here
+          {t('auth.login')}
         </MuiLink>
       </Typography>
     </Box>
