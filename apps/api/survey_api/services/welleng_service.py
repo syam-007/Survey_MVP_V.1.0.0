@@ -126,6 +126,18 @@ class WellengService:
             easting_array = survey.e
             tvd_array = survey.tvd
 
+            logger.info(f"ARRAY LENGTHS AFTER SURVEY CREATION:")
+            logger.info(f"  MD: {len(md_array)}")
+            logger.info(f"  Northing: {len(northing_array)}")
+            logger.info(f"  Easting: {len(easting_array)}")
+            logger.info(f"  TVD: {len(tvd_array)}")
+
+            # Check last 3 values to diagnose N/A issue
+            logger.info(f"LAST 3 MD VALUES: {md_array[-3:].tolist()}")
+            logger.info(f"LAST 3 NORTHING VALUES: {northing_array[-3:].tolist()}")
+            logger.info(f"LAST 3 EASTING VALUES: {easting_array[-3:].tolist()}")
+            logger.info(f"LAST 3 TVD VALUES: {tvd_array[-3:].tolist()}")
+
             logger.debug(f"Positions calculated: {len(northing_array)} points")
 
             # Calculate trajectory metrics
@@ -187,6 +199,13 @@ class WellengService:
 
             logger.info(f"Welleng calculation completed successfully for {len(md)} points")
 
+            # Log last 3 values AFTER NaN conversion to check if values are preserved
+            logger.info(f"AFTER NaN CONVERSION - LAST 3 VALUES:")
+            logger.info(f"  MD: {md[-3:]}")
+            logger.info(f"  Northing: {northing[-3:]}")
+            logger.info(f"  Easting: {easting[-3:]}")
+            logger.info(f"  TVD: {tvd[-3:]}")
+
             # CRITICAL: Verify all arrays have the same length
             array_lengths = {
                 'md': len(md),
@@ -209,8 +228,8 @@ class WellengService:
                 logger.error(f"Input MD range: {md[0]} to {md[-1]}")
                 logger.error(f"Expected length: {len(md)}")
 
-            # Return results
-            return {
+            # DIAGNOSTIC: Log what we're about to return
+            result_dict = {
                 'easting': easting,
                 'northing': northing,
                 'tvd': tvd,
@@ -223,6 +242,28 @@ class WellengService:
                 'vertical_section_azimuth': float(vertical_section_azimuth),
                 'status': 'success'
             }
+
+            logger.info(f"[WELLENG RETURN] Returning result with:")
+            logger.info(f"[WELLENG RETURN]   Northing length: {len(result_dict['northing'])}")
+            logger.info(f"[WELLENG RETURN]   Easting length: {len(result_dict['easting'])}")
+            logger.info(f"[WELLENG RETURN]   TVD length: {len(result_dict['tvd'])}")
+            logger.info(f"[WELLENG RETURN]   Last 3 Northing values: {result_dict['northing'][-3:]}")
+            logger.info(f"[WELLENG RETURN]   Last 3 Easting values: {result_dict['easting'][-3:]}")
+            logger.info(f"[WELLENG RETURN]   Last 3 TVD values: {result_dict['tvd'][-3:]}")
+
+            # FORCE OUTPUT: Using print() to ensure visibility
+            print("\n" + "="*80)
+            print("[WELLENG RETURN] Returning result with:")
+            print(f"[WELLENG RETURN]   Northing length: {len(result_dict['northing'])}")
+            print(f"[WELLENG RETURN]   Easting length: {len(result_dict['easting'])}")
+            print(f"[WELLENG RETURN]   TVD length: {len(result_dict['tvd'])}")
+            print(f"[WELLENG RETURN]   Last 3 Northing values: {result_dict['northing'][-3:]}")
+            print(f"[WELLENG RETURN]   Last 3 Easting values: {result_dict['easting'][-3:]}")
+            print(f"[WELLENG RETURN]   Last 3 TVD values: {result_dict['tvd'][-3:]}")
+            print("="*80 + "\n")
+
+            # Return results
+            return result_dict
 
         except ImportError as e:
             logger.error(f"Welleng library not installed: {str(e)}")

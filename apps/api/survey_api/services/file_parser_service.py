@@ -67,24 +67,41 @@ class FileParserService:
                 'row_count': len(df)
             }
 
-            # Check for required columns (case-insensitive)
-            if 'MD' not in column_mapping:
+            # Check for required columns (case-insensitive with alternate names)
+            # MD column: Accept "MD" or "Depth"
+            md_column = None
+            if 'MD' in column_mapping:
+                md_column = column_mapping['MD']
+            elif 'DEPTH' in column_mapping:
+                md_column = column_mapping['DEPTH']
+            else:
                 raise FileParsingError(
-                    f"Missing required column: MD (or md, Md). Found columns: {df.columns.tolist()}"
-                )
-            if 'INC' not in column_mapping:
-                raise FileParsingError(
-                    f"Missing required column: INC (or Inc, inc). Found columns: {df.columns.tolist()}"
-                )
-            if 'AZI' not in column_mapping:
-                raise FileParsingError(
-                    f"Missing required column: AZI (or Azi, azi). Found columns: {df.columns.tolist()}"
+                    f"Missing required column: MD/Depth (case-insensitive). Found columns: {df.columns.tolist()}"
                 )
 
-            # Extract MD, Inc, Azi using case-insensitive mapping
-            result['md_data'] = df[column_mapping['MD']].tolist()
+            # INC column: Accept "INC"
+            if 'INC' not in column_mapping:
+                raise FileParsingError(
+                    f"Missing required column: INC (case-insensitive). Found columns: {df.columns.tolist()}"
+                )
+
+            # AZI column: Accept "AZI" or "AZG" (azimuth gyroscopic)
+            azi_column = None
+            if 'AZI' in column_mapping:
+                azi_column = column_mapping['AZI']
+            elif 'AZG' in column_mapping:
+                azi_column = column_mapping['AZG']
+            else:
+                raise FileParsingError(
+                    f"Missing required column: AZI/AZG (case-insensitive). Found columns: {df.columns.tolist()}"
+                )
+
+            # Extract MD, Inc, Azi using case-insensitive mapping with alternate names
+            result['md_data'] = df[md_column].tolist()
             result['inc_data'] = df[column_mapping['INC']].tolist()
-            result['azi_data'] = df[column_mapping['AZI']].tolist()
+            result['azi_data'] = df[azi_column].tolist()
+
+            logger.info(f"Detected columns - MD: '{md_column}', INC: '{column_mapping['INC']}', AZI: '{azi_column}'")
 
             # Extract GTL-specific columns if survey type is GTL
             # For GTL, G(T) and W(T) are REQUIRED with case-insensitive matching

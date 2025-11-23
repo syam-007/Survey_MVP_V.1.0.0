@@ -92,8 +92,14 @@ export const CreateCompleteRunPage: React.FC = () => {
       console.log('Form Data:', data);
 
       // Step 1: Create the Run
-      console.log('Step 1: Creating Run...', data.run);
-      const createdRun = await runsService.createRun(data.run as any);
+      // Extract BHC and proposal_direction from tieon data and add to run
+      const runData = {
+        ...data.run,
+        bhc_enabled: data.tieon.is_bhc || false,
+        proposal_direction: data.tieon.proposal_direction || null,
+      };
+      console.log('Step 1: Creating Run...', runData);
+      const createdRun = await runsService.createRun(runData as any);
       const runId = createdRun.id;
       const jobId = createdRun.job;
       console.log('✓ Run created:', runId, 'for job:', jobId);

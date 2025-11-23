@@ -235,6 +235,9 @@ class QAService:
         """
         Filter survey data to include only stations with specified status.
 
+        CRITICAL: The final station (last MD) is ALWAYS included regardless of QA status,
+        as it represents the final depth which is essential for trajectory calculations.
+
         Args:
             md_data: Measured Depth array
             inc_data: Inclination array
@@ -253,8 +256,12 @@ class QAService:
         filtered_gt = []
         filtered_wt = []
 
+        last_index = len(md_data) - 1
+
         for i in range(len(md_data)):
-            if overall_status_data[i] == include_status:
+            # CRITICAL FIX: Always include the last station (final depth) regardless of QA status
+            # The final depth is the target/planned depth and must be in the calculated trajectory
+            if overall_status_data[i] == include_status or i == last_index:
                 filtered_md.append(md_data[i])
                 filtered_inc.append(inc_data[i])
                 filtered_azi.append(azi_data[i])
@@ -263,7 +270,7 @@ class QAService:
 
         logger.info(
             f"Filtered {len(filtered_md)} stations with status '{include_status}' "
-            f"from {len(md_data)} total stations"
+            f"from {len(md_data)} total stations (final depth always included)"
         )
 
         return {

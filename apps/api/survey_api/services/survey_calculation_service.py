@@ -141,8 +141,40 @@ class SurveyCalculationService:
 
             logger.info(f"Calculation completed in {calculation_duration:.3f} seconds")
 
+            # DIAGNOSTIC: Log what we received from welleng
+            logger.info(f"[CALC RECEIVED] Received result from welleng with:")
+            logger.info(f"[CALC RECEIVED]   Northing length: {len(result['northing'])}")
+            logger.info(f"[CALC RECEIVED]   Easting length: {len(result['easting'])}")
+            logger.info(f"[CALC RECEIVED]   TVD length: {len(result['tvd'])}")
+            logger.info(f"[CALC RECEIVED]   Last 3 Northing values: {result['northing'][-3:]}")
+            logger.info(f"[CALC RECEIVED]   Last 3 Easting values: {result['easting'][-3:]}")
+            logger.info(f"[CALC RECEIVED]   Last 3 TVD values: {result['tvd'][-3:]}")
+
+            # FORCE OUTPUT: Using print() to ensure visibility
+            print("\n" + "="*80)
+            print("[CALC RECEIVED] Received result from welleng with:")
+            print(f"[CALC RECEIVED]   Northing length: {len(result['northing'])}")
+            print(f"[CALC RECEIVED]   Easting length: {len(result['easting'])}")
+            print(f"[CALC RECEIVED]   TVD length: {len(result['tvd'])}")
+            print(f"[CALC RECEIVED]   Last 3 Northing values: {result['northing'][-3:]}")
+            print(f"[CALC RECEIVED]   Last 3 Easting values: {result['easting'][-3:]}")
+            print(f"[CALC RECEIVED]   Last 3 TVD values: {result['tvd'][-3:]}")
+            print("="*80 + "\n")
+
             # Create CalculatedSurvey record with results
             with transaction.atomic():
+                logger.info(f"[CALC SAVE] About to save to CalculatedSurvey:")
+                logger.info(f"[CALC SAVE]   Northing length: {len(result['northing'])}")
+                logger.info(f"[CALC SAVE]   Easting length: {len(result['easting'])}")
+                logger.info(f"[CALC SAVE]   TVD length: {len(result['tvd'])}")
+
+                print("\n" + "="*80)
+                print("[CALC SAVE] About to save to CalculatedSurvey:")
+                print(f"[CALC SAVE]   Northing length: {len(result['northing'])}")
+                print(f"[CALC SAVE]   Easting length: {len(result['easting'])}")
+                print(f"[CALC SAVE]   TVD length: {len(result['tvd'])}")
+                print("="*80 + "\n")
+
                 calculated_survey = CalculatedSurvey.objects.create(
                     survey_data=survey_data,
                     easting=result['easting'],
@@ -160,6 +192,24 @@ class SurveyCalculationService:
                     calculation_context=context,
                     error_message=None
                 )
+
+                logger.info(f"[CALC SAVED] After saving to database:")
+                logger.info(f"[CALC SAVED]   Northing length: {len(calculated_survey.northing)}")
+                logger.info(f"[CALC SAVED]   Easting length: {len(calculated_survey.easting)}")
+                logger.info(f"[CALC SAVED]   TVD length: {len(calculated_survey.tvd)}")
+                logger.info(f"[CALC SAVED]   Last 3 Northing values: {calculated_survey.northing[-3:]}")
+                logger.info(f"[CALC SAVED]   Last 3 Easting values: {calculated_survey.easting[-3:]}")
+                logger.info(f"[CALC SAVED]   Last 3 TVD values: {calculated_survey.tvd[-3:]}")
+
+                print("\n" + "="*80)
+                print("[CALC SAVED] After saving to database:")
+                print(f"[CALC SAVED]   Northing length: {len(calculated_survey.northing)}")
+                print(f"[CALC SAVED]   Easting length: {len(calculated_survey.easting)}")
+                print(f"[CALC SAVED]   TVD length: {len(calculated_survey.tvd)}")
+                print(f"[CALC SAVED]   Last 3 Northing values: {calculated_survey.northing[-3:]}")
+                print(f"[CALC SAVED]   Last 3 Easting values: {calculated_survey.easting[-3:]}")
+                print(f"[CALC SAVED]   Last 3 TVD values: {calculated_survey.tvd[-3:]}")
+                print("="*80 + "\n")
 
                 # Update SurveyFile processing_status to 'completed'
                 survey_file.processing_status = 'completed'

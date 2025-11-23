@@ -99,16 +99,28 @@ def trigger_calculation(sender, instance, created, **kwargs):
 
     Triggers if:
     - SurveyData was just created (not updated)
-    - Has valid MD, Inc, Azi data (regardless of validation_status)
+    - Has valid MD, Inc, Azi data
+    - validation_status is NOT 'pending_qa' (GTL surveys awaiting QA approval)
 
     Note: validation_status may be 'invalid' due to non-blocking warnings,
     but calculations should still be triggered as long as core data exists.
+
+    IMPORTANT: For GTL surveys, SurveyData is created during upload with validation_status='pending_qa'.
+    Calculation should NOT run at this stage because:
+    1. Data doesn't include tie-on point yet (only raw survey stations)
+    2. QA approval may filter out some stations
+    3. Final calculation happens after QA approval with complete data (including tie-on)
 
     DECISION: Using synchronous processing for Epic 4
     Benchmark shows < 3 seconds for 10,000 points
     If performance degrades, consider Celery in future epic
     """
     if created:
+        # Skip calculation for GTL surveys pending QA approval
+        if instance.validation_status == 'pending_qa':
+            logger.info(f"Skipping auto-calculation for SurveyData {instance.id} (pending_qa status - GTL awaiting approval)")
+            return
+
         from survey_api.services.survey_calculation_service import SurveyCalculationService
 
         try:

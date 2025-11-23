@@ -627,27 +627,39 @@ export const RunDetailPage: React.FC = () => {
                 </Box>
               </Box>
 
-              {run.tieon && (
-                <>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      BHC Enabled
-                    </Typography>
-                    <Typography variant="body1">
-                      {run.tieon.is_bhc ? 'Yes' : 'No'}
-                    </Typography>
-                  </Box>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="caption" color="text.secondary">
+                  BHC (Bottom Hole Convergence)
+                </Typography>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Chip
+                    label={run.bhc_enabled ? 'Enabled' : 'Disabled'}
+                    color={run.bhc_enabled ? 'success' : 'default'}
+                    size="small"
+                  />
+                  {run.bhc_enabled && (
+                    <Tooltip title="BHC calculates with initial proposal direction = 0°, then recalculates using the closure direction from the final depth">
+                      <InfoIcon sx={{ fontSize: 16, color: 'info.main' }} />
+                    </Tooltip>
+                  )}
+                </Stack>
+              </Box>
 
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Proposal Direction (°)
-                    </Typography>
-                    <Typography variant="body1">
-                      {run.tieon.proposal_direction ?? 'N/A'}
-                    </Typography>
-                  </Box>
-                </>
-              )}
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {run.bhc_enabled ? 'Proposal Direction (Converged after BHC)' : 'Proposal Direction'}
+                </Typography>
+                <Typography variant="body1">
+                  {run.proposal_direction !== null && run.proposal_direction !== undefined
+                    ? `${Number(run.proposal_direction).toFixed(run.bhc_enabled ? 6 : 2)}°`
+                    : run.bhc_enabled ? '0.00° (Initial - will be updated after calculation)' : 'N/A'}
+                </Typography>
+                {run.bhc_enabled && run.proposal_direction !== null && (
+                  <Typography variant="caption" color="success.main" sx={{ display: 'block', mt: 0.5 }}>
+                    ✓ Updated with final closure direction from survey calculation
+                  </Typography>
+                )}
+              </Box>
 
               {run.location && (
                 <Box>
@@ -933,7 +945,7 @@ export const RunDetailPage: React.FC = () => {
                         Inclination (°)
                       </Typography>
                       <Typography variant="body1" fontWeight="medium">
-                        {run.tieon.inclination}
+                        {run.tieon.inc}
                       </Typography>
                     </Box>
                     <Box flex={1}>
@@ -941,7 +953,7 @@ export const RunDetailPage: React.FC = () => {
                         Azimuth (°)
                       </Typography>
                       <Typography variant="body1" fontWeight="medium">
-                        {run.tieon.azimuth}
+                        {run.tieon.azi}
                       </Typography>
                     </Box>
                   </Stack>
@@ -1122,13 +1134,23 @@ export const RunDetailPage: React.FC = () => {
                     <Stack direction="row" spacing={4} flexWrap="wrap">
                       <Box sx={{ flex: '1 1 200px' }}>
                         <Typography variant="caption" color="text.secondary">
-                          {run.bhc_enabled ? 'Initial Proposal Direction' : 'Proposal Direction'}
+                          {run.bhc_enabled ? 'Converged Proposal Direction (BHC)' : 'Proposal Direction'}
                         </Typography>
-                        <Typography variant="body1" fontWeight="bold">
-                          {run.proposal_direction !== null && run.proposal_direction !== undefined
-                            ? `${Number(run.proposal_direction).toFixed(2)}°`
-                            : 'N/A'}
-                        </Typography>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="body1" fontWeight="bold">
+                            {run.proposal_direction !== null && run.proposal_direction !== undefined
+                              ? `${Number(run.proposal_direction).toFixed(run.bhc_enabled ? 6 : 2)}°`
+                              : run.bhc_enabled ? '0.00° (Initial)' : 'N/A'}
+                          </Typography>
+                          {run.bhc_enabled && run.proposal_direction !== null && run.proposal_direction !== undefined && (
+                            <Chip label="BHC Converged" color="success" size="small" variant="outlined" />
+                          )}
+                        </Stack>
+                        {run.bhc_enabled && (
+                          <Typography variant="caption" color="info.main" sx={{ display: 'block', mt: 0.5 }}>
+                            Initial: 0° → Recalculated using closure direction
+                          </Typography>
+                        )}
                       </Box>
                       <Box sx={{ flex: '1 1 200px' }}>
                         <Typography variant="caption" color="text.secondary">Grid Correction</Typography>

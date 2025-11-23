@@ -378,15 +378,20 @@ def save_qa_approved(request, qa_id):
         tieon_g_t = location_g_t if location else 0
         tieon_w_t = location_w_t if location else 0
 
-        md_data_with_tieon = [float(tie_on.md)] + filtered_data['md_data']
-        inc_data_with_tieon = [float(tie_on.inc)] + filtered_data['inc_data']
-        azi_data_with_tieon = [float(tie_on.azi)] + filtered_data['azi_data']
-        gt_data_with_tieon = [tieon_g_t] + filtered_data['gt_data']
-        wt_data_with_tieon = [tieon_w_t] + filtered_data['wt_data']
+        # CRITICAL FIX: Use ORIGINAL unfiltered data for SurveyData (like Gyro does)
+        # This ensures all stations get calculated coordinates, matching Gyro behavior
+        # The filtered_data is only for QA score calculation above, not for trajectory calculations
+        md_data_with_tieon = [float(tie_on.md)] + quality_check.md_data
+        inc_data_with_tieon = [float(tie_on.inc)] + quality_check.inc_data
+        azi_data_with_tieon = [float(tie_on.azi)] + quality_check.azi_data
+        gt_data_with_tieon = [tieon_g_t] + quality_check.gt_data
+        wt_data_with_tieon = [tieon_w_t] + quality_check.wt_data
 
         row_count_with_tieon = len(md_data_with_tieon)
 
-        logger.info(f"Saving QA-approved survey: {row_count_with_tieon} stations (including tie-on)")
+        logger.info(f"[GTL QA FIX - save_qa_approved] Using ORIGINAL unfiltered data for SurveyData (like Gyro)")
+        logger.info(f"[GTL QA FIX - save_qa_approved] Total stations with tie-on: {row_count_with_tieon}")
+        logger.info(f"[GTL QA FIX - save_qa_approved] MD range: {md_data_with_tieon[0]:.2f} to {md_data_with_tieon[-1]:.2f}")
 
         # Create SurveyFile and SurveyData in transaction
         with transaction.atomic():
@@ -420,17 +425,23 @@ def save_qa_approved(request, qa_id):
 
         logger.info(f"Successfully saved QA-approved survey: SurveyData {survey_data.id}")
 
-        # Trigger survey calculation
+        # IMPORTANT: Post-save signal won't fire until AFTER transaction commits
+        # Since SurveyData creation is inside transaction.atomic(), we must manually trigger calculation
+        logger.info(f"[GTL QA FIX - save_qa_approved] Transaction committed, SurveyData saved with {len(survey_data.md_data)} stations")
+
+        # Trigger survey calculation manually after transaction completes
         calculated_survey = None
         calculation_error = None
         try:
-            logger.info(f"Triggering survey calculation for SurveyData {survey_data.id}")
+            from survey_api.services.survey_calculation_service import SurveyCalculationService
+            logger.info(f"[GTL QA FIX - save_qa_approved] Manually triggering calculation for SurveyData {survey_data.id}")
             calculated_survey = SurveyCalculationService.calculate(str(survey_data.id))
-            logger.info(f"Survey calculation completed: CalculatedSurvey {calculated_survey.id}")
-        except Exception as calc_error:
-            # Log error but don't fail the save operation
-            calculation_error = str(calc_error)
-            logger.error(f"Survey calculation failed: {calculation_error}")
+            logger.info(f"[GTL QA FIX - save_qa_approved] ✓ Calculation completed: {calculated_survey.id}")
+            logger.info(f"[GTL QA FIX - save_qa_approved] ✓ Calculated {len(calculated_survey.northing)} coordinate points")
+        except Exception as e:
+            calculation_error = str(e)
+            logger.error(f"[GTL QA FIX - save_qa_approved] ✗ Calculation failed: {calculation_error}")
+            logger.exception(e)
 
         response_data = {
             "id": str(survey_data.id),
@@ -565,6 +576,9 @@ def approve_gtl_qa_temp(request, temp_qa_id):
             )
         else:
             # Keep only PASS stations
+            logger.info(f"[GTL QA] Original data: {len(md_data)} stations, MD range: {md_data[0]:.2f} to {md_data[-1]:.2f}")
+            logger.info(f"[GTL QA] PASS count: {qa_results['pass_count']}, REMOVE count: {qa_results['remove_count']}")
+
             filtered_data = QAService.filter_stations_by_status(
                 md_data=md_data,
                 inc_data=inc_data,
@@ -574,6 +588,10 @@ def approve_gtl_qa_temp(request, temp_qa_id):
                 overall_status_data=qa_results['overall_status_data'],
                 include_status='PASS'
             )
+
+            logger.info(f"[GTL QA] After filtering: {len(filtered_data['md_data'])} stations kept")
+            logger.info(f"[GTL QA] Filtered MD range: {filtered_data['md_data'][0]:.2f} to {filtered_data['md_data'][-1]:.2f}")
+            logger.info(f"[GTL QA] Last 3 MDs in filtered data: {filtered_data['md_data'][-3:]}")
 
         # Get Run object
         try:
@@ -595,14 +613,20 @@ def approve_gtl_qa_temp(request, temp_qa_id):
             location_w_t=location_w_t
         )
 
-        # Prepend tie-on values
+        # Prepend tie-on values to ORIGINAL unfiltered data (for calculation - like Gyro)
         # Use location G(T) and W(T) for tie-on row (TieOn model doesn't have these)
         tie_on = run.tieon
-        md_data_with_tieon = [float(tie_on.md)] + filtered_data['md_data']
-        inc_data_with_tieon = [float(tie_on.inc)] + filtered_data['inc_data']
-        azi_data_with_tieon = [float(tie_on.azi)] + filtered_data['azi_data']
-        gt_data_with_tieon = [location_g_t] + filtered_data['gt_data']
-        wt_data_with_tieon = [location_w_t] + filtered_data['wt_data']
+        # CRITICAL FIX: Use ORIGINAL unfiltered data for SurveyData (like Gyro does)
+        # This ensures all stations get calculated coordinates, matching Gyro behavior
+        md_data_with_tieon = [float(tie_on.md)] + md_data  # Original unfiltered
+        inc_data_with_tieon = [float(tie_on.inc)] + inc_data  # Original unfiltered
+        azi_data_with_tieon = [float(tie_on.azi)] + azi_data  # Original unfiltered
+        gt_data_with_tieon = [location_g_t] + gt_data  # Original unfiltered
+        wt_data_with_tieon = [location_w_t] + wt_data  # Original unfiltered
+
+        logger.info(f"[GTL QA FIX] Using ORIGINAL unfiltered data for SurveyData (like Gyro)")
+        logger.info(f"[GTL QA FIX] Total stations with tie-on: {len(md_data_with_tieon)}")
+        logger.info(f"[GTL QA FIX] MD range: {md_data_with_tieon[0]:.2f} to {md_data_with_tieon[-1]:.2f}")
 
         # Create database records
         with transaction.atomic():
@@ -616,7 +640,9 @@ def approve_gtl_qa_temp(request, temp_qa_id):
                 processing_status='completed'
             )
 
-            # Create SurveyData
+            # Create SurveyData with ORIGINAL unfiltered data (like Gyro)
+            # This triggers automatic calculation via post-save signal
+            # All stations will get coordinates calculated
             survey_data = SurveyData.objects.create(
                 survey_file=survey_file,
                 md_data=md_data_with_tieon,
@@ -666,16 +692,26 @@ def approve_gtl_qa_temp(request, temp_qa_id):
 
         logger.info(f"Created SurveyFile {survey_file.id}, SurveyData {survey_data.id}, QualityCheck {quality_check.id}")
 
-        # Trigger survey calculation
+        # IMPORTANT: Post-save signal won't fire until AFTER transaction commits
+        # Since SurveyData creation is inside transaction.atomic(), we must manually trigger calculation
+        # This ensures calculation uses the ORIGINAL unfiltered data we just saved
+        logger.info(f"[GTL QA FIX] Transaction committed, SurveyData saved with {len(survey_data.md_data)} stations")
+
+        # Trigger survey calculation manually after transaction completes
         calculated_survey = None
         calculation_error = None
         try:
-            logger.info(f"Triggering survey calculation for SurveyData {survey_data.id}")
+            from survey_api.services.survey_calculation_service import SurveyCalculationService
+            logger.info(f"[GTL QA FIX] Manually triggering calculation for SurveyData {survey_data.id}")
             calculated_survey = SurveyCalculationService.calculate(str(survey_data.id))
-            logger.info(f"Survey calculation completed: CalculatedSurvey {calculated_survey.id}")
-        except Exception as calc_error:
-            calculation_error = str(calc_error)
-            logger.error(f"Survey calculation failed: {calculation_error}")
+            logger.info(f"[GTL QA FIX] ✓ Calculation completed: {calculated_survey.id}")
+            logger.info(f"[GTL QA FIX] ✓ Calculated {len(calculated_survey.northing)} coordinate points")
+            logger.info(f"[GTL QA FIX] ✓ Last 3 Northings: {calculated_survey.northing[-3:]}")
+            logger.info(f"[GTL QA FIX] ✓ Last 3 TVDs: {calculated_survey.tvd[-3:]}")
+        except Exception as e:
+            calculation_error = str(e)
+            logger.error(f"[GTL QA FIX] ✗ Calculation failed: {calculation_error}")
+            logger.exception(e)
 
         # Clean up temporary files
         try:
