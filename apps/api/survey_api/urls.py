@@ -16,7 +16,7 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from survey_api.views.auth_views import (
@@ -111,6 +111,14 @@ urlpatterns = [
     path("api/v1/users/<uuid:user_id>/update", update_user, name="users_update"),
     path("api/v1/users/<uuid:user_id>/delete", delete_user, name="users_delete"),
 
+    # Survey export endpoints (using re_path to ensure proper matching order with router patterns)
+    re_path(r"^api/v1/surveys/export/calculated/(?P<calculated_survey_id>[0-9a-f-]+)/$",
+         export_calculated_survey,
+         name="export-calculated-survey"),
+    re_path(r"^api/v1/surveys/export/interpolated/(?P<interpolated_survey_id>[0-9a-f-]+)/$",
+         export_interpolated_survey,
+         name="export-interpolated-survey"),
+
     # Survey file upload endpoint
     path("api/v1/surveys/upload/", upload_survey_file, name="upload_survey_file"),
 
@@ -127,23 +135,6 @@ urlpatterns = [
     # Survey status endpoint
     path("api/v1/surveys/status/<uuid:survey_data_id>/", get_survey_status, name="get_survey_status"),
 
-    # Survey data detail endpoint
-    path("api/v1/surveys/<uuid:survey_data_id>/", get_survey_data_detail, name="get_survey_data_detail"),
-
-    # Survey report generation endpoint
-    path("api/v1/surveys/<uuid:survey_data_id>/report/", generate_survey_report_view, name="generate_survey_report"),
-
-    # QA approval and calculation endpoint
-    path("api/v1/surveys/<uuid:survey_data_id>/qa/approve/", approve_qa_and_calculate, name="approve_qa_and_calculate"),
-
-    # Survey export endpoints
-    path("api/v1/surveys/export/calculated/<uuid:calculated_survey_id>/",
-         export_calculated_survey,
-         name="export-calculated-survey"),
-    path("api/v1/surveys/export/interpolated/<uuid:interpolated_survey_id>/",
-         export_interpolated_survey,
-         name="export-interpolated-survey"),
-
     # Reference Survey endpoints
     path("api/v1/surveys/reference/upload/",
          upload_reference_survey,
@@ -154,6 +145,15 @@ urlpatterns = [
     path("api/v1/surveys/reference/<uuid:id>/",
          get_reference_survey_detail,
          name="get-reference-survey-detail"),
+
+    # Survey data detail endpoint
+    path("api/v1/surveys/<uuid:survey_data_id>/", get_survey_data_detail, name="get_survey_data_detail"),
+
+    # Survey report generation endpoint
+    path("api/v1/surveys/<uuid:survey_data_id>/report/", generate_survey_report_view, name="generate_survey_report"),
+
+    # QA approval and calculation endpoint
+    path("api/v1/surveys/<uuid:survey_data_id>/qa/approve/", approve_qa_and_calculate, name="approve_qa_and_calculate"),
 
     # Comparison endpoints
     path("api/v1/comparisons/compare/",
@@ -201,6 +201,6 @@ urlpatterns = [
     # Job and Master Data endpoints
     path("api/v1/", include('survey_api.job_urls')),
 
-    # Run and Well management endpoints (via router)
+    # Run and Well management endpoints (via router) - MUST be last to avoid conflicts
     path("api/v1/", include(router.urls)),
 ]

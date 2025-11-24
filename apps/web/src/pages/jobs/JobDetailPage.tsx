@@ -52,6 +52,7 @@ import {
   useDeleteJobMutation,
 } from '../../stores/jobsSlice';
 import type { JobStatus } from '../../types/job.types';
+import { JobDuplicateSurveyDialog } from '../../components/survey/JobDuplicateSurveyDialog';
 
 /**
  * JobDetailPage Component
@@ -72,6 +73,9 @@ export const JobDetailPage: React.FC = () => {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [downloadingPrejob, setDownloadingPrejob] = useState(false);
   const [downloadingSOE, setDownloadingSOE] = useState(false);
+
+  // Duplicate survey dialog state (opens JobDuplicateSurveyDialog)
+  const [duplicateSurveyDialogOpen, setDuplicateSurveyDialogOpen] = useState(false);
 
   // Accordion expanded state
   const [masterDataExpanded, setMasterDataExpanded] = useState(true);
@@ -817,7 +821,7 @@ export const JobDetailPage: React.FC = () => {
                     }
                   }}
                   onClick={() => {
-                    console.log('Navigate to duplicate');
+                    setDuplicateSurveyDialogOpen(true);
                   }}
                 >
                   <CardContent sx={{ p: 2 }}>
@@ -941,6 +945,15 @@ export const JobDetailPage: React.FC = () => {
         message={snackbarMessage}
         onClose={() => setSnackbarOpen(false)}
       />
+
+      {/* Duplicate Survey Dialog */}
+      {runs && runs.length > 0 && (
+        <JobDuplicateSurveyDialog
+          open={duplicateSurveyDialogOpen}
+          runs={runs}
+          onClose={() => setDuplicateSurveyDialogOpen(false)}
+        />
+      )}
     </Container>
   );
 };

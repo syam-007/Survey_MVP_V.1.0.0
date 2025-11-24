@@ -123,6 +123,12 @@ class SurveyCalculationService:
                 # Store the updated proposal direction for BHC
                 updated_proposal_direction = closure_direction_last
                 logger.info(f"BHC calculation completed - converged to {closure_direction_last:.6f}°")
+
+                print(f"\n{'='*80}")
+                print(f"[BHC CALCULATION] Converged closure direction: {closure_direction_last:.6f}°")
+                print(f"[BHC CALCULATION] This will be stored as vertical_section_azimuth in CalculatedSurvey")
+                print(f"[BHC CALCULATION] Result vertical_section_azimuth: {result.get('vertical_section_azimuth')}°")
+                print(f"{'='*80}\n")
             else:
                 # Normal calculation (non-BHC)
                 # Call WellengService to perform calculation
@@ -197,6 +203,15 @@ class SurveyCalculationService:
                 logger.info(f"[CALC SAVED]   Northing length: {len(calculated_survey.northing)}")
                 logger.info(f"[CALC SAVED]   Easting length: {len(calculated_survey.easting)}")
                 logger.info(f"[CALC SAVED]   TVD length: {len(calculated_survey.tvd)}")
+
+                # Log the vertical_section_azimuth that was saved (important for BHC)
+                print(f"\n{'='*80}")
+                print(f"[CALC SAVED] CalculatedSurvey created with ID: {calculated_survey.id}")
+                print(f"[CALC SAVED] Stored vertical_section_azimuth: {calculated_survey.vertical_section_azimuth}°")
+                print(f"[CALC SAVED] BHC enabled: {context.get('bhc_enabled', False)}")
+                if context.get('bhc_enabled'):
+                    print(f"[CALC SAVED] This azimuth is the BHC converged closure direction")
+                print(f"{'='*80}\n")
                 logger.info(f"[CALC SAVED]   Last 3 Northing values: {calculated_survey.northing[-3:]}")
                 logger.info(f"[CALC SAVED]   Last 3 Easting values: {calculated_survey.easting[-3:]}")
                 logger.info(f"[CALC SAVED]   Last 3 TVD values: {calculated_survey.tvd[-3:]}")

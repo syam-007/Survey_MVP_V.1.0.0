@@ -296,34 +296,45 @@ class CalculationViewSet(viewsets.ViewSet):
     @action(detail=True, methods=['get'], url_path='interpolation/(?P<resolution>[0-9]+)')
     def get_interpolation(self, request, pk=None, resolution=None):
         """
-        Get interpolation data for a specific resolution.
+        Get interpolation data - ALWAYS RECALCULATES fresh data with BHC support.
+        Does NOT return saved interpolation from database.
 
-        This endpoint calculates interpolation on-demand if not already saved.
-        Returns data with is_saved flag indicating if data is in database.
+        This ensures BHC recalculation works correctly and users always see current data.
 
-        GET /api/v1/calculations/{calculated_survey_id}/interpolation/{resolution}/
+        GET /api/v1/calculations/{calculated_survey_id}/interpolation/{resolution}/?start_md=X&end_md=Y
+
         Query Parameters:
-        - start_md: Optional start MD for custom range
-        - end_md: Optional end MD for custom range
+            - start_md: Optional start MD for custom range
+            - end_md: Optional end MD for custom range
 
         Response:
         {
-            "id": "uuid",  // Only present if saved
+            "id": "uuid" (if saved) or null,
             "resolution": 20,
             "point_count": 750,
             "md_interpolated": [...],
             "is_saved": true/false,
+            "calculation_timestamp": "...",
+            "bhc_enabled": true/false,
             ...
         }
         """
+        import datetime
+        request_time = datetime.datetime.now().isoformat()
+        print(f"\n{'#'*80}")
+        print(f"### GET INTERPOLATION ENDPOINT CALLED (CalculationViewSet) ###")
+        print(f"### Request Time: {request_time}")
+        print(f"### CalculatedSurvey ID: {pk}")
+        print(f"### Resolution: {resolution}")
+        print(f"### This endpoint ALWAYS recalculates - NO CACHED DATA")
+        print(f"{'#'*80}\n")
+
         try:
-            # Extract query parameters for custom MD range
+            # Extract query parameters
             start_md = request.query_params.get('start_md')
             end_md = request.query_params.get('end_md')
-
-            # Convert to float if provided
-            start_md = float(start_md) if start_md is not None else None
-            end_md = float(end_md) if end_md is not None else None
+            start_md_value = float(start_md) if start_md else None
+            end_md_value = float(end_md) if end_md else None
 
             # Get calculated survey and check user ownership
             calc_survey = get_object_or_404(
@@ -338,53 +349,106 @@ class CalculationViewSet(viewsets.ViewSet):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            # Try to get saved interpolation first
-            try:
-                interpolation = InterpolatedSurvey.objects.get(
-                    calculated_survey_id=pk,
-                    resolution=int(resolution)
+            # Get BHC status from calculation context
+            bhc_enabled = calc_survey.calculation_context.get('bhc_enabled', False) if calc_survey.calculation_context else False
+            vertical_section_azimuth = float(calc_survey.vertical_section_azimuth) if calc_survey.vertical_section_azimuth is not None else None
+
+            print(f"\n{'='*80}")
+            print(f"[INTERPOLATION SETUP] BHC enabled: {bhc_enabled}")
+            print(f"[INTERPOLATION SETUP] Vertical section azimuth from DB: {vertical_section_azimuth}°")
+            print(f"{'='*80}\n")
+
+            # Prepare data for interpolation
+            from survey_api.services.welleng_service import WellengService
+            survey_data = calc_survey.survey_data
+            calculated_data = {
+                'md': survey_data.md_data,
+                'inc': survey_data.inc_data,
+                'azi': survey_data.azi_data,
+                'easting': calc_survey.easting,
+                'northing': calc_survey.northing,
+                'tvd': calc_survey.tvd,
+            }
+
+            # Implement BHC iterative calculation for interpolation
+            if bhc_enabled:
+                print(f"[INTERPOLATION BHC] Performing iterative BHC interpolation")
+                print(f"[INTERPOLATION BHC] Step 1: Initial interpolation with proposal_direction = 0°\n")
+
+                # Step 1: Initial interpolation
+                initial_result = WellengService.interpolate_survey(
+                    calculated_data,
+                    int(resolution),
+                    start_md=start_md_value,
+                    end_md=end_md_value,
+                    vertical_section_azimuth=0.0
                 )
 
-                # Return saved interpolation
-                serializer = InterpolatedSurveySerializer(interpolation)
-                response_data = serializer.data
-                response_data['is_saved'] = True
+                # Step 2: Get closure direction from last point
+                interpolated_closure_direction_last = initial_result['closure_direction'][-1]
 
-                logger.info(f"Returning saved interpolation for resolution {resolution}m")
-                return Response(response_data, status=status.HTTP_200_OK)
+                print(f"\n[INTERPOLATION BHC] Step 2: Got closure direction = {interpolated_closure_direction_last:.6f}°")
+                print(f"[INTERPOLATION BHC] Step 3: Recalculating with that direction\n")
 
-            except InterpolatedSurvey.DoesNotExist:
-                # Calculate on-demand without saving
-                logger.info(f"No saved interpolation found, calculating on-demand for resolution {resolution}m")
-
-                result = InterpolationService.calculate_interpolation_data(
-                    calculated_survey_id=str(pk),
-                    resolution=int(resolution),
-                    start_md=start_md,
-                    end_md=end_md
+                # Step 3: Recalculate with closure direction
+                result = WellengService.interpolate_survey(
+                    calculated_data,
+                    int(resolution),
+                    start_md=start_md_value,
+                    end_md=end_md_value,
+                    vertical_section_azimuth=interpolated_closure_direction_last
                 )
 
-                # Format response similar to InterpolatedSurveySerializer
-                response_data = {
-                    'calculated_survey': str(pk),
-                    'resolution': result['resolution'],
-                    'point_count': result['point_count'],
-                    'md_interpolated': result['md'],
-                    'inc_interpolated': result['inc'],
-                    'azi_interpolated': result['azi'],
-                    'easting_interpolated': result['easting'],
-                    'northing_interpolated': result['northing'],
-                    'tvd_interpolated': result['tvd'],
-                    'dls_interpolated': result['dls'],
-                    'vertical_section_interpolated': result.get('vertical_section', []),
-                    'closure_distance_interpolated': result.get('closure_distance', []),
-                    'closure_direction_interpolated': result.get('closure_direction', []),
-                    'interpolation_status': 'completed',
-                    'interpolation_duration': result['interpolation_duration'],
-                    'is_saved': False,
-                }
+                print(f"[INTERPOLATION BHC] Completed - converged to {interpolated_closure_direction_last:.6f}°\n")
+            else:
+                # Non-BHC: single pass
+                result = WellengService.interpolate_survey(
+                    calculated_data,
+                    int(resolution),
+                    start_md=start_md_value,
+                    end_md=end_md_value,
+                    vertical_section_azimuth=vertical_section_azimuth
+                )
 
-                return Response(response_data, status=status.HTTP_200_OK)
+            # Check if saved in database
+            saved_interpolation = InterpolatedSurvey.objects.filter(
+                calculated_survey_id=pk,
+                resolution=int(resolution)
+            ).first()
+
+            # Prepare response
+            calculation_timestamp = datetime.datetime.now().isoformat()
+            response_data = {
+                'id': str(saved_interpolation.id) if saved_interpolation else None,
+                'calculated_survey': str(pk),
+                'resolution': int(resolution),
+                'md_interpolated': result['md'],
+                'inc_interpolated': result['inc'],
+                'azi_interpolated': result['azi'],
+                'easting_interpolated': result['easting'],
+                'northing_interpolated': result['northing'],
+                'tvd_interpolated': result['tvd'],
+                'dls_interpolated': result['dls'],
+                'vertical_section_interpolated': result.get('vertical_section', []),
+                'closure_distance_interpolated': result.get('closure_distance', []),
+                'closure_direction_interpolated': result.get('closure_direction', []),
+                'point_count': result['point_count'],
+                'interpolation_status': 'completed',
+                'is_saved': saved_interpolation is not None,
+                'calculation_timestamp': calculation_timestamp,
+                'bhc_enabled': bhc_enabled,
+            }
+
+            print(f"[INTERPOLATION RESPONSE] Calculation timestamp: {calculation_timestamp}")
+            print(f"[INTERPOLATION RESPONSE] BHC enabled: {bhc_enabled}")
+            print(f"[INTERPOLATION RESPONSE] Last closure direction: {result['closure_direction'][-1]:.6f}°\n")
+
+            # Add cache-control headers
+            response = Response(response_data, status=status.HTTP_200_OK)
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            return response
 
         except InsufficientDataError as e:
             logger.error(f"InsufficientDataError: {str(e)}")

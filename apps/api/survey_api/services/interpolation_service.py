@@ -58,6 +58,10 @@ class InterpolationService:
                     f"Cannot interpolate: CalculatedSurvey status is '{calc_survey.calculation_status}', expected 'calculated'"
                 )
 
+            # Get vertical section azimuth from calculated survey
+            # This is important for BHC calculations where the azimuth is the converged closure direction
+            vertical_section_azimuth = float(calc_survey.vertical_section_azimuth) if calc_survey.vertical_section_azimuth is not None else None
+
             # Check if interpolation already exists for this resolution
             existing = InterpolatedSurvey.objects.filter(
                 calculated_survey=calc_survey,
@@ -65,7 +69,7 @@ class InterpolationService:
             ).first()
 
             if existing:
-                logger.info(f"Returning existing interpolation (id={existing.id}) for resolution {resolution}m")
+                logger.info(f"Interpolation already exists (id={existing.id}) for resolution {resolution}m - returning existing")
                 return existing
 
             # Prepare data for welleng interpolation
@@ -80,17 +84,19 @@ class InterpolationService:
             }
 
             logger.debug(f"Prepared data: {len(survey_data.md_data)} original points")
+            logger.debug(f"Using vertical section azimuth: {vertical_section_azimuth}° from calculated survey")
 
             # Measure interpolation time
             start_time = time.time()
 
             try:
-                # Call welleng interpolation
+                # Call welleng interpolation with correct vertical section azimuth
                 result = WellengService.interpolate_survey(
                     calculated_data,
                     resolution,
                     start_md=start_md,
-                    end_md=end_md
+                    end_md=end_md,
+                    vertical_section_azimuth=vertical_section_azimuth
                 )
 
                 duration = time.time() - start_time

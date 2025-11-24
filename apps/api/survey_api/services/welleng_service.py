@@ -161,8 +161,15 @@ class WellengService:
                 vertical_section_azimuth = float(tie_on_data.get('azi', 0.0))
 
             logger.debug(f"Setting vertical section azimuth to {vertical_section_azimuth} degrees")
+            print(f"\n[WELLENG CALC] Setting vertical section with azimuth: {vertical_section_azimuth}°")
             survey.set_vertical_section(vertical_section_azimuth, deg=True)
             vertical_section_array = survey.vertical_section
+
+            print(f"[WELLENG CALC] Vertical section calculated successfully")
+            print(f"[WELLENG CALC] Vertical section array length: {len(vertical_section_array)}")
+            print(f"[WELLENG CALC] First 3 vertical section values: {vertical_section_array[:min(3, len(vertical_section_array))]}")
+            print(f"[WELLENG CALC] Last 3 vertical section values: {vertical_section_array[-min(3, len(vertical_section_array)):]}")
+            print(f"[WELLENG CALC] Vertical section range: {vertical_section_array[0]:.2f} to {vertical_section_array[-1]:.2f}\n")
 
             # Calculate Closure Distance and Direction
             # Closure is calculated relative to the first point (tie-on position)
@@ -300,7 +307,8 @@ class WellengService:
         calculated_data: Dict,
         resolution: int = 5,
         start_md: Optional[float] = None,
-        end_md: Optional[float] = None
+        end_md: Optional[float] = None,
+        vertical_section_azimuth: Optional[float] = None
     ) -> Dict:
         """
         Interpolate calculated survey to specified resolution using welleng's interpolate_survey.
@@ -316,6 +324,7 @@ class WellengService:
             resolution: Interpolation step size in meters (default: 5)
             start_md: Optional start MD for custom range (default: tie-on MD)
             end_md: Optional end MD for custom range (default: final MD)
+            vertical_section_azimuth: Optional azimuth for vertical section (important for BHC calculations)
 
         Returns:
             Dictionary containing:
@@ -462,10 +471,30 @@ class WellengService:
             print(f"[INTERPOLATION] First calculated point: N={interpolated_survey.n[0]:.2f}, E={interpolated_survey.e[0]:.2f}, TVD={interpolated_survey.tvd[0]:.2f}")
 
             # Calculate Vertical Section using interpolated survey
-            # Use the azimuth from the first interpolated point (grid azimuth)
-            vertical_section_azimuth = float(interpolated_survey.azi_grid_deg[0])
-            logger.debug(f"Setting vertical section azimuth to {vertical_section_azimuth} degrees")
+            # Use the provided vertical_section_azimuth if available (important for BHC calculations),
+            # otherwise fall back to the azimuth from the first interpolated point
+            if vertical_section_azimuth is None:
+                vertical_section_azimuth = float(interpolated_survey.azi_grid_deg[0])
+                logger.debug(f"No vertical section azimuth provided, using first point azimuth: {vertical_section_azimuth}°")
+                print(f"[WELLENG INTERP] No vertical section azimuth provided, using first point: {vertical_section_azimuth}°")
+            else:
+                logger.debug(f"Using provided vertical section azimuth: {vertical_section_azimuth}° (BHC converged value)")
+                print(f"\n{'='*80}")
+                print(f"[WELLENG INTERP] Using PROVIDED vertical section azimuth: {vertical_section_azimuth}°")
+                print(f"[WELLENG INTERP] This is the BHC converged closure direction")
+                print(f"[WELLENG INTERP] Setting vertical section with this azimuth...")
+                print(f"{'='*80}\n")
+
             interpolated_survey.set_vertical_section(vertical_section_azimuth, deg=True)
+
+            print(f"[WELLENG INTERP] Vertical section set successfully with azimuth={vertical_section_azimuth}°")
+
+            # Log vertical section details
+            vertical_section_array = interpolated_survey.vertical_section
+            print(f"[WELLENG INTERP] Vertical section array length: {len(vertical_section_array)}")
+            print(f"[WELLENG INTERP] First 3 vertical section values: {vertical_section_array[:min(3, len(vertical_section_array))]}")
+            print(f"[WELLENG INTERP] Last 3 vertical section values: {vertical_section_array[-min(3, len(vertical_section_array)):]}")
+            print(f"[WELLENG INTERP] Vertical section range: {vertical_section_array[0]:.2f} to {vertical_section_array[-1]:.2f}")
 
             # Calculate Closure Distance and Direction
             closure_distance_list = []

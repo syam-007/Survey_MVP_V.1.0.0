@@ -401,21 +401,26 @@ def approve_qa_and_calculate(request, survey_data_id):
 
             logger.info(f"QA approved for SurveyData {survey_data_id}")
 
-            # Check if calculation already exists
+            # Delete existing CalculatedSurvey if it exists to force recalculation
+            # This is important when BHC settings or other run parameters have changed
+            # The cascade delete will also remove associated InterpolatedSurveys
             try:
-                calculated_survey = CalculatedSurvey.objects.get(survey_data=survey_data)
-                logger.info(f"Using existing CalculatedSurvey ID: {calculated_survey.id}")
+                existing_calculated = CalculatedSurvey.objects.get(survey_data=survey_data)
+                logger.info(f"Deleting existing CalculatedSurvey ID: {existing_calculated.id} to force recalculation")
+                existing_calculated.delete()
             except CalculatedSurvey.DoesNotExist:
-                # Trigger survey calculation if not exists
-                try:
-                    calculated_survey = SurveyCalculationService.calculate(str(survey_data.id))
-                    logger.info(f"Survey calculation completed - CalculatedSurvey ID: {calculated_survey.id}")
-                except Exception as calc_error:
-                    logger.exception(f"Error during survey calculation: {calc_error}")
-                    return Response(
-                        {'error': f'Survey calculation failed: {str(calc_error)}'},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
+                logger.info("No existing CalculatedSurvey found - will create new")
+
+            # Trigger survey calculation
+            try:
+                calculated_survey = SurveyCalculationService.calculate(str(survey_data.id))
+                logger.info(f"Survey calculation completed - CalculatedSurvey ID: {calculated_survey.id}")
+            except Exception as calc_error:
+                logger.exception(f"Error during survey calculation: {calc_error}")
+                return Response(
+                    {'error': f'Survey calculation failed: {str(calc_error)}'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
             return Response({
                 'success': True,

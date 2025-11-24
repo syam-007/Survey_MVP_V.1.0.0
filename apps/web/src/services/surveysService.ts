@@ -251,6 +251,10 @@ class SurveysService {
     try {
       // Build query parameters
       const params = new URLSearchParams();
+
+      // Add cache-busting timestamp to force fresh calculation every time
+      params.append('_t', Date.now().toString());
+
       if (startMD !== undefined) {
         params.append('start_md', startMD.toString());
       }
@@ -259,9 +263,21 @@ class SurveysService {
       }
 
       const queryString = params.toString();
-      const url = `/api/v1/calculations/${calculatedSurveyId}/interpolation/${resolution}/${queryString ? `?${queryString}` : ''}`;
+      const url = `/api/v1/calculations/${calculatedSurveyId}/interpolation/${resolution}/?${queryString}`;
+
+      console.log(`[FETCH INTERPOLATION] Requesting: ${url}`);
+      console.log(`[FETCH INTERPOLATION] Timestamp: ${new Date().toISOString()}`);
+      console.log(`[FETCH INTERPOLATION] This request should ALWAYS trigger fresh calculation on backend`);
 
       const response = await this.api.get(url);
+
+      console.log(`[FETCH INTERPOLATION] Response received:`, {
+        calculation_timestamp: response.data.calculation_timestamp,
+        bhc_enabled: response.data.bhc_enabled,
+        point_count: response.data.point_count,
+        is_saved: response.data.is_saved
+      });
+
       return response.data;
     } catch (error: any) {
       throw this.handleError(error, 'Failed to get interpolation');

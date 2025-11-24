@@ -22,6 +22,7 @@ interface UseSurveyPlotDataResult {
   isLoading: boolean;
   error: Error | null;
   isSaved: boolean;
+  interpolatedSurveyId: string | null;
   refetch: () => void;
 }
 
@@ -37,6 +38,7 @@ export const useSurveyPlotData = (
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
   const [isSaved, setIsSaved] = useState<boolean>(true); // For calculated data, always true; for interpolated, depends on API
+  const [interpolatedSurveyId, setInterpolatedSurveyId] = useState<string | null>(null);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
 
   useEffect(() => {
@@ -102,12 +104,14 @@ export const useSurveyPlotData = (
 
             // Debug logging
             console.log('=== INTERPOLATION DATA RECEIVED ===');
+            console.log('Interpolated Survey ID:', interpResult.id);
             console.log('MD array length:', interpResult.md_interpolated?.length || 0);
             console.log('First MD:', interpResult.md_interpolated?.[0]);
             console.log('Last MD:', interpResult.md_interpolated?.[interpResult.md_interpolated?.length - 1]);
             console.log('Last 3 MDs:', interpResult.md_interpolated?.slice(-3));
 
-            // Set isSaved based on API response
+            // Set interpolated survey ID and isSaved
+            setInterpolatedSurveyId(interpResult.id || null);
             setIsSaved(interpResult.is_saved === true);
           } catch (interpError) {
             // Fall back to calculated data if interpolation not available
@@ -163,6 +167,7 @@ export const useSurveyPlotData = (
     isLoading,
     error,
     isSaved,
+    interpolatedSurveyId,
     refetch
   };
 };

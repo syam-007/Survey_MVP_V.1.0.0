@@ -16,6 +16,7 @@ import {
 import DownloadIcon from '@mui/icons-material/Download';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import TableChartIcon from '@mui/icons-material/TableChart';
+import config from '../../config/env';
 
 interface DownloadButtonProps {
   surveyId: string;
@@ -46,21 +47,64 @@ export const DownloadButton: React.FC<DownloadButtonProps> = ({
     handleClose();
 
     try {
+      // Validate surveyId
+      if (!surveyId) {
+        throw new Error('Survey ID is missing. Please reload the page and try again.');
+      }
+
+      console.log(`Downloading ${dataType} survey as ${format}:`, surveyId);
+
       const endpoint = dataType === 'calculated'
         ? `/api/v1/surveys/export/calculated/${surveyId}/`
         : `/api/v1/surveys/export/interpolated/${surveyId}/`;
 
-      const url = `${endpoint}?format=${format}`;
+      const url = `${config.apiBaseUrl}${endpoint}?format=${format}`;
+      console.log('Download URL:', url);
 
-      // Create a temporary link and trigger download
+      // Fetch with authentication headers
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+      });
+
+      console.log('Response status:', response.status, response.statusText);
+
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+      }
+
+      // Get filename from Content-Disposition header
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `survey_${dataType}_${surveyId}.${format === 'excel' ? 'xlsx' : 'csv'}`;
+
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1].replace(/"/g, '');
+        }
+      }
+
+      // Get blob from response
+      const blob = await response.blob();
+
+      // Create download link
+      const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
-      link.download = '';
+      link.href = downloadUrl;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+
+      // Clean up
+      window.URL.revokeObjectURL(downloadUrl);
+
+      console.log(`Successfully downloaded ${filename}`);
     } catch (error) {
       console.error('Download failed:', error);
+      alert(`Failed to download ${dataType} survey data. Please try again.`);
     } finally {
       setIsDownloading(false);
     }

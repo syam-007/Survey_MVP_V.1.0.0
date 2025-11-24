@@ -72,7 +72,7 @@ export const SurveyResultsPage: React.FC = () => {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
-  const { data: surveyData, metadata, isLoading, error, isSaved, refetch } = useSurveyPlotData(
+  const { data: surveyData, metadata, isLoading, error, isSaved, interpolatedSurveyId, refetch } = useSurveyPlotData(
     surveyDataId!,
     dataSource,
     resolution,
@@ -461,9 +461,11 @@ export const SurveyResultsPage: React.FC = () => {
                   >
                     {isDownloadingServiceTicket ? 'Generating...' : 'Service Ticket'}
                   </Button>
-                  <DownloadButton surveyId={surveyDataId} dataType="calculated" />
-                  {dataSource === 'interpolated' && (
-                    <DownloadButton surveyId={surveyDataId} dataType="interpolated" />
+                  {calculatedSurveyId && (
+                    <DownloadButton surveyId={calculatedSurveyId} dataType="calculated" />
+                  )}
+                  {dataSource === 'interpolated' && interpolatedSurveyId && (
+                    <DownloadButton surveyId={interpolatedSurveyId} dataType="interpolated" />
                   )}
                 </Box>
               </Box>
