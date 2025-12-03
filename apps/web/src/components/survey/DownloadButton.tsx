@@ -23,13 +23,20 @@ interface DownloadButtonProps {
   dataType: 'calculated' | 'interpolated';
   variant?: 'text' | 'outlined' | 'contained';
   size?: 'small' | 'medium' | 'large';
+  // For interpolated downloads: use fresh calculation instead of saved data
+  resolution?: number;
+  startMD?: number;
+  endMD?: number;
 }
 
 export const DownloadButton: React.FC<DownloadButtonProps> = ({
   surveyId,
   dataType,
   variant = 'outlined',
-  size = 'medium'
+  size = 'medium',
+  resolution,
+  startMD,
+  endMD
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);

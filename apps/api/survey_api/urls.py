@@ -45,7 +45,8 @@ from survey_api.views.calculation_viewset import CalculationViewSet
 from survey_api.views.interpolation_viewset import InterpolationViewSet
 from survey_api.views.export_viewset import (
     export_calculated_survey,
-    export_interpolated_survey
+    export_interpolated_survey,
+    export_fresh_interpolation
 )
 from survey_api.views.reference_viewset import (
     upload_reference_survey,
@@ -118,6 +119,9 @@ urlpatterns = [
     re_path(r"^api/v1/surveys/export/interpolated/(?P<interpolated_survey_id>[0-9a-f-]+)/$",
          export_interpolated_survey,
          name="export-interpolated-survey"),
+    re_path(r"^api/v1/surveys/export/fresh-interpolation/(?P<calculated_survey_id>[0-9a-f-]+)/$",
+         export_fresh_interpolation,
+         name="export-fresh-interpolation"),
 
     # Survey file upload endpoint
     path("api/v1/surveys/upload/", upload_survey_file, name="upload_survey_file"),

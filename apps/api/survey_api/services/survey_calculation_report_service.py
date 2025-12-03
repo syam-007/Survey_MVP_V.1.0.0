@@ -336,11 +336,30 @@ class SurveyCalculationReportService:
         elements.append(equip_header)
         elements.append(Spacer(1, 0.05*inch))
 
+        # Get proposal direction (Vertical Section Azimuth)
+        # Priority:
+        # 1. If BHC enabled: Use the updated/recalculated value from calculated_survey.vertical_section_azimuth
+        # 2. If BHC disabled: Use initial proposal_direction from tieon or run
+        proposal_direction_value = 'N/A'
+
+        # Check if BHC is enabled
+        bhc_enabled = run.bhc_enabled if hasattr(run, 'bhc_enabled') else False
+
+        if bhc_enabled and hasattr(calculated_survey, 'vertical_section_azimuth') and calculated_survey.vertical_section_azimuth is not None:
+            # BHC enabled: Use the recalculated/converged value from CalculatedSurvey
+            proposal_direction_value = f'{calculated_survey.vertical_section_azimuth:.2f} °deg'
+        elif hasattr(run, 'tieon') and run.tieon and run.tieon.proposal_direction is not None:
+            # BHC disabled: Use initial proposal direction from tieon
+            proposal_direction_value = f'{run.tieon.proposal_direction} °deg'
+        elif run.proposal_direction is not None:
+            # Fallback to run's proposal_direction if tieon doesn't exist
+            proposal_direction_value = f'{run.proposal_direction} °deg'
+
         # Equipment Details Content
         equip_data = [
-            ['survey Probe type', 'G-1000', 'Elevation Referred', 'Mean Sea Level (MSL)'],
-            ['survey Probe type', 'G-1000', 'Elevation Referred', 'Mean Sea Level (MSL)'],
-            ['survey Probe type', 'G-1000', 'Elevation Referred', 'Mean Sea Level (MSL)']
+            ['survey Probe type', '110  115', 'Displacement Referred to', 'Well Head'],
+            ['Probe ID', '249  255', 'Vertical Section Reference', 'Well Centre'],
+            ['Error Model', 'n/a  n/a', 'Vertical Section Azimuth', proposal_direction_value]
         ]
 
         equip_table = Table(equip_data, colWidths=[1.55*inch, 2.33*inch, 1.55*inch, 2.34*inch])

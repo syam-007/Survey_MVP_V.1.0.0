@@ -17,6 +17,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils.dataframe import dataframe_to_rows
 
 from survey_api.models import CalculatedSurvey, InterpolatedSurvey, ComparisonResult
+from survey_api.services.welleng_service import WellengService
 
 
 class ExcelExportService:
@@ -143,6 +144,116 @@ class ExcelExportService:
         except InterpolatedSurvey.DoesNotExist:
             raise ObjectDoesNotExist(
                 f"InterpolatedSurvey with id '{interpolated_survey_id}' does not exist."
+            )
+
+    @classmethod
+    def export_fresh_interpolation(
+        cls,
+        calculated_survey_id: str,
+        resolution: int,
+        start_md: float = None,
+        end_md: float = None,
+        format: Literal['excel', 'csv'] = 'excel'
+    ) -> Tuple[BinaryIO, str, str]:
+        """
+        Export freshly calculated interpolation data to Excel or CSV.
+
+        This method ALWAYS recalculates interpolation data (never uses saved data).
+        It performs the same BHC iterative calculation as the get_interpolation endpoint.
+
+        Args:
+            calculated_survey_id: UUID of the CalculatedSurvey instance
+            resolution: Interpolation resolution in meters
+            start_md: Optional start MD for custom range
+            end_md: Optional end MD for custom range
+            format: Export format ('excel' or 'csv')
+
+        Returns:
+            Tuple of (file_buffer, filename, content_type)
+
+        Raises:
+            ObjectDoesNotExist: If calculated survey not found
+            ValueError: If data is invalid or incomplete
+        """
+        try:
+            # Fetch calculated survey with related data
+            calculated = CalculatedSurvey.objects.select_related(
+                'survey_data',
+                'survey_data__survey_file',
+                'survey_data__survey_file__run',
+                'survey_data__survey_file__run__location',
+                'survey_data__survey_file__run__depth',
+                'survey_data__survey_file__run__tieon'
+            ).get(id=calculated_survey_id)
+
+            # Validate data is available
+            if calculated.calculation_status not in ['calculated', 'completed']:
+                raise ValueError(
+                    f"Cannot interpolate survey with status '{calculated.calculation_status}'. "
+                    "Only calculated/completed surveys can be interpolated."
+                )
+
+            if not calculated.survey_data:
+                raise ValueError("Survey data is missing from calculated survey.")
+
+            # Prepare data for interpolation (same as get_interpolation endpoint)
+            survey_data = calculated.survey_data
+            calculated_data = {
+                'md': survey_data.md_data,
+                'inc': survey_data.inc_data,
+                'azi': survey_data.azi_data,
+                'easting': calculated.easting,
+                'northing': calculated.northing,
+                'tvd': calculated.tvd,
+            }
+
+            # Get vertical section azimuth from calculated survey
+            vertical_section_azimuth = float(calculated.vertical_section_azimuth) if calculated.vertical_section_azimuth is not None else None
+
+            # Get calculation context to check BHC status
+            bhc_enabled = calculated.calculation_context.get('bhc_enabled', False) if calculated.calculation_context else False
+
+            # Implement BHC iterative calculation for interpolation (same as get_interpolation)
+            if bhc_enabled:
+                # Step 1: Initial interpolation with proposal_direction = 0
+                initial_result = WellengService.interpolate_survey(
+                    calculated_data,
+                    resolution,
+                    start_md=start_md,
+                    end_md=end_md,
+                    vertical_section_azimuth=0.0
+                )
+
+                # Step 2: Get closure direction from last interpolated point
+                interpolated_closure_direction_last = initial_result['closure_direction'][-1]
+
+                # Step 3: Recalculate with closure direction
+                result = WellengService.interpolate_survey(
+                    calculated_data,
+                    resolution,
+                    start_md=start_md,
+                    end_md=end_md,
+                    vertical_section_azimuth=interpolated_closure_direction_last
+                )
+            else:
+                # Non-BHC: Use the vertical_section_azimuth from calculated survey
+                result = WellengService.interpolate_survey(
+                    calculated_data,
+                    resolution,
+                    start_md=start_md,
+                    end_md=end_md,
+                    vertical_section_azimuth=vertical_section_azimuth
+                )
+
+            # Generate file based on format
+            if format == 'excel':
+                return cls._export_fresh_interpolation_excel(calculated, result, resolution)
+            else:
+                return cls._export_fresh_interpolation_csv(calculated, result, resolution)
+
+        except CalculatedSurvey.DoesNotExist:
+            raise ObjectDoesNotExist(
+                f"CalculatedSurvey with id '{calculated_survey_id}' does not exist."
             )
 
     @classmethod
@@ -323,6 +434,172 @@ class ExcelExportService:
             'Easting (m)': interpolated.easting_interpolated[:row_count],
             'Northing (m)': interpolated.northing_interpolated[:row_count],
             'TVD (m)': interpolated.tvd_interpolated[:row_count],
+        }
+        df = pd.DataFrame(data)
+
+        # Write headers
+        for col_num, column_name in enumerate(cls.INTERPOLATED_COLUMNS, 1):
+            cell = ws.cell(row=1, column=col_num, value=column_name)
+            cell.font = cls.HEADER_FONT
+            cell.fill = cls.HEADER_FILL
+            cell.alignment = cls.HEADER_ALIGNMENT
+
+        # Write data rows
+        for row_num, row_data in enumerate(dataframe_to_rows(df, index=False, header=False), 2):
+            for col_num, value in enumerate(row_data, 1):
+                cell = ws.cell(row=row_num, column=col_num, value=value)
+                # Format numbers to 2 decimal places
+                if isinstance(value, (int, float)):
+                    cell.number_format = '0.00'
+                cell.alignment = Alignment(horizontal='right')
+
+        # Auto-adjust column widths
+        for col_num in range(1, len(cls.INTERPOLATED_COLUMNS) + 1):
+            ws.column_dimensions[chr(64 + col_num)].width = 15
+
+    @classmethod
+    def _export_fresh_interpolation_excel(cls, calculated: CalculatedSurvey, interpolation_result: dict, resolution: int) -> Tuple[BinaryIO, str, str]:
+        """Generate Excel file for fresh interpolation data."""
+        wb = Workbook()
+        run = calculated.survey_data.survey_file.run
+
+        # Remove default sheet
+        if 'Sheet' in wb.sheetnames:
+            wb.remove(wb['Sheet'])
+
+        # Create metadata sheet (pass resolution info)
+        ws_metadata = wb.create_sheet('Metadata', 0)
+        cls._write_fresh_interpolation_metadata(ws_metadata, run, resolution, interpolation_result['point_count'])
+
+        # Create survey data sheet
+        ws_data = wb.create_sheet('Survey Data')
+        cls._write_fresh_interpolation_data(ws_data, interpolation_result)
+
+        # Generate filename
+        filename = cls._generate_filename(
+            run.run_name,
+            'interpolated',
+            'excel'
+        )
+
+        # Save to buffer
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        return buffer, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+    @classmethod
+    def _export_fresh_interpolation_csv(cls, calculated: CalculatedSurvey, interpolation_result: dict, resolution: int) -> Tuple[BinaryIO, str, str]:
+        """Generate CSV file for fresh interpolation data."""
+        run = calculated.survey_data.survey_file.run
+        point_count = interpolation_result['point_count']
+
+        # Create DataFrame from interpolation result
+        data = {
+            'MD (m)': interpolation_result['md'][:point_count],
+            'Inc (deg)': interpolation_result['inc'][:point_count],
+            'Azi (deg)': interpolation_result['azi'][:point_count],
+            'Easting (m)': interpolation_result['easting'][:point_count],
+            'Northing (m)': interpolation_result['northing'][:point_count],
+            'TVD (m)': interpolation_result['tvd'][:point_count],
+        }
+        df = pd.DataFrame(data)
+
+        # Create buffer with metadata header
+        buffer = io.StringIO()
+
+        # Write metadata as comments
+        buffer.write(f"# Survey Export - Interpolated Data (Fresh Calculation)\n")
+        buffer.write(f"# Run Name: {str(run)}\n")
+        buffer.write(f"# Export Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        buffer.write(f"# Resolution: {resolution} m\n")
+        buffer.write(f"# Point Count: {point_count}\n")
+        buffer.write(f"# Note: This data was freshly calculated at export time (not saved in database)\n")
+        buffer.write("#\n")
+
+        # Write CSV data
+        df.to_csv(buffer, index=False, float_format='%.2f')
+
+        # Convert to bytes
+        bytes_buffer = io.BytesIO(buffer.getvalue().encode('utf-8'))
+        bytes_buffer.seek(0)
+
+        # Generate filename
+        filename = cls._generate_filename(
+            run.run_name,
+            'interpolated',
+            'csv'
+        )
+
+        return bytes_buffer, filename, 'text/csv'
+
+    @classmethod
+    def _write_fresh_interpolation_metadata(cls, ws, run, resolution: int, point_count: int) -> None:
+        """Create metadata sheet for fresh interpolation."""
+        # Title
+        ws['A1'] = 'Survey Export Metadata'
+        ws['A1'].font = Font(bold=True, size=14)
+        ws.merge_cells('A1:B1')
+
+        # Run information
+        row = 3
+        metadata = [
+            ('Run Name', str(run)),
+            ('Export Date', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
+            ('Data Type', 'Interpolated (Fresh Calculation)'),
+            ('Resolution (m)', str(resolution)),
+            ('Point Count', str(point_count)),
+            ('Note', 'This data was freshly calculated at export time'),
+        ]
+
+        # Add location info if available
+        if hasattr(run, 'location') and run.location:
+            metadata.extend([
+                ('Latitude', f"{run.location.latitude}"),
+                ('Longitude', f"{run.location.longitude}"),
+            ])
+
+        # Add depth info if available
+        if hasattr(run, 'depth') and run.depth:
+            metadata.extend([
+                ('Reference Height (m)', f"{run.depth.reference_height:.2f}"),
+                ('Reference Elevation (m)', f"{run.depth.reference_elevation:.2f}"),
+            ])
+
+        # Add tie-on info if available
+        if hasattr(run, 'tieon') and run.tieon:
+            metadata.extend([
+                ('Tie-On MD (m)', f"{run.tieon.md:.2f}"),
+                ('Tie-On Inclination (deg)', f"{run.tieon.inc:.2f}"),
+                ('Tie-On Azimuth (deg)', f"{run.tieon.azi:.2f}"),
+            ])
+
+        # Write metadata rows
+        for label, value in metadata:
+            ws[f'A{row}'] = label
+            ws[f'A{row}'].font = cls.METADATA_LABEL_FONT
+            ws[f'B{row}'] = value
+            ws[f'B{row}'].alignment = cls.METADATA_VALUE_ALIGNMENT
+            row += 1
+
+        # Set column widths
+        ws.column_dimensions['A'].width = 25
+        ws.column_dimensions['B'].width = 40
+
+    @classmethod
+    def _write_fresh_interpolation_data(cls, ws, interpolation_result: dict) -> None:
+        """Write fresh interpolation data to worksheet."""
+        point_count = interpolation_result['point_count']
+
+        # Create DataFrame from interpolation result
+        data = {
+            'MD (m)': interpolation_result['md'][:point_count],
+            'Inc (deg)': interpolation_result['inc'][:point_count],
+            'Azi (deg)': interpolation_result['azi'][:point_count],
+            'Easting (m)': interpolation_result['easting'][:point_count],
+            'Northing (m)': interpolation_result['northing'][:point_count],
+            'TVD (m)': interpolation_result['tvd'][:point_count],
         }
         df = pd.DataFrame(data)
 

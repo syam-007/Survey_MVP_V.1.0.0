@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   postgres:
     image: postgres:15
@@ -69,6 +71,7 @@ services:
       - api
     environment:
       VITE_API_URL: http://localhost:8000
+  
 
 volumes:
   postgres_data:
