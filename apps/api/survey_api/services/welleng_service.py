@@ -237,7 +237,7 @@ class WellengService:
                 f"Survey calculation failed: {str(e)}"
             )
 
-    @staticmethod
+     @staticmethod
     def _interp_inc_azi_circular(
         md: np.ndarray,
         inc: np.ndarray,
@@ -249,7 +249,9 @@ class WellengService:
         Interpolate inclination and azimuth vs MD.
 
         - Inclination: standard 1D interpolation.
-        - Azimuth: interpolate on the unit circle (cos/sin) to handle 0/360 wrap.
+        - Azimuth: unwrap in radians -> interpolate -> wrap back to [0, 360).
+          This performs shortest-path angular interpolation and avoids 0/360 issues
+          WITHOUT the chord/atan2 artifacts you saw with cos/sin LERP.
         """
         from scipy.interpolate import interp1d
 
@@ -263,19 +265,16 @@ class WellengService:
         f_inc = interp1d(md_s, inc_s, kind=kind, bounds_error=False, fill_value="extrapolate")
         inc_new = f_inc(md_new)
 
-        # Azimuth (circular): interpolate unit vectors
+        # Azimuth (circular): unwrap -> interpolate -> wrap
         azi_rad = np.deg2rad(azi_s)
-        x = np.cos(azi_rad)
-        y = np.sin(azi_rad)
 
-        f_x = interp1d(md_s, x, kind=kind, bounds_error=False, fill_value="extrapolate")
-        f_y = interp1d(md_s, y, kind=kind, bounds_error=False, fill_value="extrapolate")
+        # Unwrap so interpolation follows the shortest angular path between stations
+        azi_unwrapped = np.unwrap(azi_rad, discont=np.pi)
 
-        x_new = f_x(md_new)
-        y_new = f_y(md_new)
+        f_azi = interp1d(md_s, azi_unwrapped, kind=kind, bounds_error=False, fill_value="extrapolate")
+        azi_new_unwrapped = f_azi(md_new)
 
-        azi_new_rad = np.arctan2(y_new, x_new)
-        azi_new_deg = np.mod(np.rad2deg(azi_new_rad), 360.0)
+        azi_new_deg = np.mod(np.rad2deg(azi_new_unwrapped), 360.0)
 
         return inc_new, azi_new_deg
 
