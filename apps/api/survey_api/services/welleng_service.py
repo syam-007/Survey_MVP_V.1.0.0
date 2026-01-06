@@ -237,7 +237,7 @@ class WellengService:
                 f"Survey calculation failed: {str(e)}"
             )
 
-     @staticmethod
+    @staticmethod
     def _interp_inc_azi_circular(
         md: np.ndarray,
         inc: np.ndarray,
