@@ -518,10 +518,9 @@ class QCReportService:
         story.append(result_table)
 
         return story
-
     @staticmethod
     def _create_page2(qa_check: QualityCheck) -> List:
-        """Create Page 2: Gyrocompass QC Analysis."""
+        """Create Page 2: Gyrocompass QC Analysis (without TGF Comp and W(t) Comp columns)."""
         story = []
         run = qa_check.run
         location = run.well.location if hasattr(run, 'well') and run.well and hasattr(run.well, 'location') else None
@@ -530,7 +529,7 @@ class QCReportService:
         story.append(QCReportService._create_section_header('Gyrocompass QC Analysis'))
         story.append(Spacer(1, 0.1*inch))
 
-        # Explanation text
+        # Explanation text (keep as-is or remove parts if you want)
         explanation = """<font size="7">The Gyrocompass Survey Stations are qualified based on 2 Criteria,<br/>
         <b>W(t) - Horizontal vector of Earth's Rotation Rate</b> – The measured drift rate of the Gyroscopic Sensor sensing Azimuthal drift caused due to Earth's Rotation.<br/>
         Actual ER<sub>h</sub> = 15.046 cosine (Latitude)<br/>
@@ -581,12 +580,14 @@ class QCReportService:
         story.append(gl_erh_table)
         story.append(Spacer(1, 0.1*inch))
 
-        # QA stations table
+        # ✅ QA stations table (removed ΔTGF Comp and ΔW(t) Comp)
         qa_table_data = [[
-            'Measure\nDepth', 'Inclination', 'Azimuth', 'G(t)', 'Δ TGF', 'Δ TGF\nComp', 'W(t)', 'Δ W(t)', 'Δ W(t)\nComp', 'Status'
+            'Measure\nDepth', 'Inclination', 'Azimuth',
+            'G(t)', 'Δ TGF',
+            'W(t)', 'Δ W(t)',
+            'Status'
         ]]
 
-        # Add station data rows
         pass_count = 0
         for i in range(len(qa_check.md_data)):
             md = qa_check.md_data[i]
@@ -596,8 +597,6 @@ class QCReportService:
             wt = qa_check.wt_data[i]
             gt_diff = qa_check.g_t_difference_data[i]
             wt_diff = qa_check.w_t_difference_data[i]
-            gt_status = qa_check.g_t_status_data[i].upper()
-            wt_status = qa_check.w_t_status_data[i].upper()
             overall = qa_check.overall_status_data[i]
 
             if overall == 'PASS':
@@ -609,16 +608,17 @@ class QCReportService:
                 f"{azi:.2f}",
                 f"{gt:.2f}",
                 f"{gt_diff:.2f}",
-                gt_status,
                 f"{wt:.2f}",
                 f"{wt_diff:.2f}",
-                wt_status,
                 overall
             ])
 
-        qa_table = Table(qa_table_data, colWidths=[0.75*inch, 0.75*inch, 0.75*inch, 0.75*inch, 0.75*inch, 0.75*inch, 0.75*inch, 0.75*inch, 0.75*inch, 0.75*inch])
+        # New col widths (8 columns now)
+        qa_table = Table(
+            qa_table_data,
+            colWidths=[0.9*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.9*inch]
+        )
 
-        # Build table style with color coding
         table_style = [
             ('BACKGROUND', (0, 0), (-1, 0), QCReportService.LIGHT_GRAY),
             ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 7),
@@ -630,33 +630,13 @@ class QCReportService:
             ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ]
 
-        # Color code status cells
+        # ✅ Only color Overall status column now (last column index = 7)
         for i in range(1, len(qa_table_data)):
-            row_idx = i
-            # G(t) status color
-            gt_status = qa_table_data[i][5]
-            if gt_status == 'HIGH':
-                table_style.append(('BACKGROUND', (5, row_idx), (5, row_idx), QCReportService.GREEN_PASS))
-            elif gt_status == 'GOOD':
-                table_style.append(('BACKGROUND', (5, row_idx), (5, row_idx), QCReportService.YELLOW_GOOD))
-            elif gt_status == 'LOW':
-                table_style.append(('BACKGROUND', (5, row_idx), (5, row_idx), QCReportService.RED_LOW))
-
-            # W(t) status color
-            wt_status = qa_table_data[i][8]
-            if wt_status == 'HIGH':
-                table_style.append(('BACKGROUND', (8, row_idx), (8, row_idx), QCReportService.GREEN_PASS))
-            elif wt_status == 'GOOD':
-                table_style.append(('BACKGROUND', (8, row_idx), (8, row_idx), QCReportService.YELLOW_GOOD))
-            elif wt_status == 'LOW':
-                table_style.append(('BACKGROUND', (8, row_idx), (8, row_idx), QCReportService.RED_LOW))
-
-            # Overall status color
-            overall_status = qa_table_data[i][9]
+            overall_status = qa_table_data[i][7]
             if overall_status == 'PASS':
-                table_style.append(('BACKGROUND', (9, row_idx), (9, row_idx), QCReportService.GREEN_PASS))
+                table_style.append(('BACKGROUND', (7, i), (7, i), QCReportService.GREEN_PASS))
             else:
-                table_style.append(('BACKGROUND', (9, row_idx), (9, row_idx), QCReportService.RED_LOW))
+                table_style.append(('BACKGROUND', (7, i), (7, i), QCReportService.RED_LOW))
 
         qa_table.setStyle(TableStyle(table_style))
         story.append(qa_table)
@@ -685,6 +665,174 @@ class QCReportService:
         story.append(confidence_table)
 
         return story
+
+
+    # @staticmethod
+    # def _create_page2(qa_check: QualityCheck) -> List:
+    #     """Create Page 2: Gyrocompass QC Analysis."""
+    #     story = []
+    #     run = qa_check.run
+    #     location = run.well.location if hasattr(run, 'well') and run.well and hasattr(run.well, 'location') else None
+
+    #     # Section header
+    #     story.append(QCReportService._create_section_header('Gyrocompass QC Analysis'))
+    #     story.append(Spacer(1, 0.1*inch))
+
+    #     # Explanation text
+    #     explanation = """<font size="7">The Gyrocompass Survey Stations are qualified based on 2 Criteria,<br/>
+    #     <b>W(t) - Horizontal vector of Earth's Rotation Rate</b> – The measured drift rate of the Gyroscopic Sensor sensing Azimuthal drift caused due to Earth's Rotation.<br/>
+    #     Actual ER<sub>h</sub> = 15.046 cosine (Latitude)<br/>
+    #     Δ W(t) = W(t) - ER<sub>h</sub><br/>
+    #     <b>High Compliance</b> - Variance within ±1° is allowed to keep the azimuthal uncertainty ≤ ±0.1°,<br/>
+    #     <b>Good Compliance</b> - Variance within ±3° is allowed to keep the azimuthal uncertainty ≤ ±1°<br/>
+    #     <b>Low Compliance</b> - Variance within ±10° is allowed to keep the azimuthal uncertainty ≤ ±3° (Vertical Wells)<br/>
+    #     <b>Non-Compliance</b> – Higher Uncertainty in Azimuth readings from the Sensor for the particular survey station.<br/><br/>
+    #     <b>G(t) - Vertical vector of Local Gravity</b> – The acceleration due to Gravity measured by the Accelerometers sensing Inclination change in the Probe.<br/>
+    #     Local Gravity g<sub>l</sub> is calculated using the International Gravity Formula 1980 from the Latitude and Reference Elevation of the location.<br/>
+    #     g<sub>l</sub> = 9.780327(1 + Asin²L - Bsin²2L) - 3.086x10⁻⁶H [ L – Latitude, H – Reference Elevation, A – 0.0053024, B – 0.0000058]<br/>
+    #     Standard Gravity g<sub>s</sub> = 9.800665 m/s²<br/>
+    #     Calculated G<sub>l</sub> = g<sub>l</sub> x Mass of the Toolstring (mg) (~1000 mg).<br/>
+    #     Δ TGF = G(t) – G<sub>l</sub><br/>
+    #     <b>High Compliance</b> - Variance within ± 1 mg is allowed to keep the inclination uncertainty ≤ 0.1°<br/>
+    #     <b>Good Compliance</b> - Variance within ± 5 mg is allowed to keep the inclination uncertainty ≤ 0.5°<br/>
+    #     <b>Low Compliance</b> - Variance within ± 10 mg is allowed to keep the inclination uncertainty ≤ 1° (Vertical Wells)<br/>
+    #     <b>Non-Compliance</b> - Higher uncertainty in Inclination readings from the Sensor for the particular survey station.</font>"""
+    #     story.append(Paragraph(explanation, getSampleStyleSheet()['Normal']))
+    #     story.append(Spacer(1, 0.15*inch))
+
+    #     # Calculate Gl and ERh
+    #     location_g_t = float(location.g_t) if location and location.g_t else 998.278
+    #     location_w_t = float(location.w_t) if location and location.w_t else 13.84
+
+    #     # Survey name
+    #     survey_name = f"Survey: {qa_check.file_name}"
+    #     story.append(Paragraph(f'<font size="9"><b>{survey_name}</b></font>', getSampleStyleSheet()['Normal']))
+    #     story.append(Spacer(1, 0.05*inch))
+
+    #     # Gl and ERh values
+    #     gl_erh_data = [[
+    #         Paragraph(f'<font size="8"><b>G<sub>l</sub></b></font>', getSampleStyleSheet()['Normal']),
+    #         f"{location_g_t:.3f}",
+    #         Paragraph(f'<font size="8"><b>ER<sub>h</sub></b></font>', getSampleStyleSheet()['Normal']),
+    #         f"{location_w_t:.2f}"
+    #     ]]
+    #     gl_erh_table = Table(gl_erh_data, colWidths=[0.5*inch, 1*inch, 0.5*inch, 1*inch])
+    #     gl_erh_table.setStyle(TableStyle([
+    #         ('BACKGROUND', (0, 0), (0, 0), QCReportService.LIGHT_GRAY),
+    #         ('BACKGROUND', (2, 0), (2, 0), QCReportService.LIGHT_GRAY),
+    #         ('FONT', (0, 0), (-1, -1), 'Helvetica', 8),
+    #         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+    #         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+    #         ('TOPPADDING', (0, 0), (-1, -1), 4),
+    #         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    #     ]))
+    #     story.append(gl_erh_table)
+    #     story.append(Spacer(1, 0.1*inch))
+
+    #     # QA stations table
+    #     qa_table_data = [[
+    #         'Measure\nDepth', 'Inclination', 'Azimuth', 'G(t)', 'Δ TGF', 'Δ TGF\nComp', 'W(t)', 'Δ W(t)', 'Δ W(t)\nComp', 'Status'
+    #     ]]
+
+    #     # Add station data rows
+    #     pass_count = 0
+    #     for i in range(len(qa_check.md_data)):
+    #         md = qa_check.md_data[i]
+    #         inc = qa_check.inc_data[i]
+    #         azi = qa_check.azi_data[i]
+    #         gt = qa_check.gt_data[i]
+    #         wt = qa_check.wt_data[i]
+    #         gt_diff = qa_check.g_t_difference_data[i]
+    #         wt_diff = qa_check.w_t_difference_data[i]
+    #         gt_status = qa_check.g_t_status_data[i].upper()
+    #         wt_status = qa_check.w_t_status_data[i].upper()
+    #         overall = qa_check.overall_status_data[i]
+
+    #         if overall == 'PASS':
+    #             pass_count += 1
+
+    #         qa_table_data.append([
+    #             f"{md:.2f}",
+    #             f"{inc:.2f}",
+    #             f"{azi:.2f}",
+    #             f"{gt:.2f}",
+    #             f"{gt_diff:.2f}",
+    #             gt_status,
+    #             f"{wt:.2f}",
+    #             f"{wt_diff:.2f}",
+    #             wt_status,
+    #             overall
+    #         ])
+
+    #     qa_table = Table(qa_table_data, colWidths=[0.75*inch, 0.75*inch, 0.75*inch, 0.75*inch, 0.75*inch, 0.75*inch, 0.75*inch, 0.75*inch, 0.75*inch, 0.75*inch])
+
+    #     # Build table style with color coding
+    #     table_style = [
+    #         ('BACKGROUND', (0, 0), (-1, 0), QCReportService.LIGHT_GRAY),
+    #         ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 7),
+    #         ('FONT', (0, 1), (-1, -1), 'Helvetica', 7),
+    #         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+    #         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+    #         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    #         ('TOPPADDING', (0, 0), (-1, -1), 3),
+    #         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    #     ]
+
+    #     # Color code status cells
+    #     for i in range(1, len(qa_table_data)):
+    #         row_idx = i
+    #         # G(t) status color
+    #         gt_status = qa_table_data[i][5]
+    #         if gt_status == 'HIGH':
+    #             table_style.append(('BACKGROUND', (5, row_idx), (5, row_idx), QCReportService.GREEN_PASS))
+    #         elif gt_status == 'GOOD':
+    #             table_style.append(('BACKGROUND', (5, row_idx), (5, row_idx), QCReportService.YELLOW_GOOD))
+    #         elif gt_status == 'LOW':
+    #             table_style.append(('BACKGROUND', (5, row_idx), (5, row_idx), QCReportService.RED_LOW))
+
+    #         # W(t) status color
+    #         wt_status = qa_table_data[i][8]
+    #         if wt_status == 'HIGH':
+    #             table_style.append(('BACKGROUND', (8, row_idx), (8, row_idx), QCReportService.GREEN_PASS))
+    #         elif wt_status == 'GOOD':
+    #             table_style.append(('BACKGROUND', (8, row_idx), (8, row_idx), QCReportService.YELLOW_GOOD))
+    #         elif wt_status == 'LOW':
+    #             table_style.append(('BACKGROUND', (8, row_idx), (8, row_idx), QCReportService.RED_LOW))
+
+    #         # Overall status color
+    #         overall_status = qa_table_data[i][9]
+    #         if overall_status == 'PASS':
+    #             table_style.append(('BACKGROUND', (9, row_idx), (9, row_idx), QCReportService.GREEN_PASS))
+    #         else:
+    #             table_style.append(('BACKGROUND', (9, row_idx), (9, row_idx), QCReportService.RED_LOW))
+
+    #     qa_table.setStyle(TableStyle(table_style))
+    #     story.append(qa_table)
+    #     story.append(Spacer(1, 0.1*inch))
+
+    #     # Confidence score
+    #     total_stations = len(qa_check.md_data)
+    #     confidence = (pass_count / total_stations * 100) if total_stations > 0 else 0
+
+    #     confidence_data = [[
+    #         'Survey Gyrocompass QC Confidence',
+    #         f"{confidence:.2f} %",
+    #         'SURVEY QUALIFIED'
+    #     ]]
+    #     confidence_table = Table(confidence_data, colWidths=[3.75*inch, 1.5*inch, 2.25*inch])
+    #     confidence_table.setStyle(TableStyle([
+    #         ('BACKGROUND', (0, 0), (0, 0), QCReportService.LIGHT_GRAY),
+    #         ('BACKGROUND', (2, 0), (2, 0), QCReportService.GREEN_PASS),
+    #         ('FONT', (0, 0), (-1, -1), 'Helvetica-Bold', 9),
+    #         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+    #         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+    #         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    #         ('TOPPADDING', (0, 0), (-1, -1), 6),
+    #         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    #     ]))
+    #     story.append(confidence_table)
+
+    #     return story
 
     @staticmethod
     def _create_page3(qa_check: QualityCheck) -> List:

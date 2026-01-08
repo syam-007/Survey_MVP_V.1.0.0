@@ -61,21 +61,24 @@ class SurveyRunInMasterViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class MinimumIdMasterViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    ViewSet for MinimumIdMaster - Read-only
-    """
-    queryset = MinimumIdMaster.objects.filter(is_active=True)
     serializer_class = MinimumIdMasterSerializer
 
     def get_queryset(self):
-        """
-        Filter by survey_run_in
-        """
-        queryset = super().get_queryset()
+        queryset = MinimumIdMaster.objects.filter(is_active=True)
+        
+        # Get the ID of the selected Survey Run-In from the request
+        selected_run_in_id = self.request.query_params.get('survey_run_in_id')
 
-        # Filter by survey run-in ID
-        survey_run_in_id = self.request.query_params.get('survey_run_in_id', None)
-        if survey_run_in_id:
-            queryset = queryset.filter(survey_run_in_id=survey_run_in_id)
+        if selected_run_in_id:
+            try:
+                # 1. Find the numeric size of the selected pipe (e.g., 13.375)
+                selected_pipe = SurveyRunInMaster.objects.get(id=selected_run_in_id)
+                max_size = selected_pipe.size_numeric
 
-        return queryset
+                # 2. Return ALL Minimum IDs smaller than that size
+                # This includes IDs for casing, drillpipe, or tubing
+                queryset = queryset.filter(size_numeric__lt=max_size)
+            except SurveyRunInMaster.DoesNotExist:
+                return queryset.none()
+
+        return queryset.order_by('-size_numeric') # Largest available IDs first
